@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<launch>
+  <arg name="left_tag_x" default="0" />
+  <arg name="left_tag_y" default="0.28575" />
+  <arg name="right_tag_x" default="0" />
+  <arg name="right_tag_y" default="-0.28575" />
+
+  <node pkg="amr_x_communication" type="localization.py" name="localization_node" output="screen">
+    <param name="robot_number" value="1"/>
+
+    <param name="left_tag_pos_x" value="$(arg left_tag_x)"/>
+    <param name="left_tag_pos_y" value="$(arg left_tag_y)"/>
+    <param name="right_tag_pos_x" value="$(arg right_tag_x)"/>
+    <param name="right_tag_pos_y" value="$(arg right_tag_y)"/>
+
+    <param name="frequency" value="15"/>
+    <param name="alpha" value="1"/>
+    <param name="noise" value="0.001"/>
+    <param name="protocol" value="fast"/>
+  </node>
+
+  <node name="left_tag_link" pkg="tf" type="static_transform_publisher" args="$(arg left_tag_x) $(arg left_tag_y) 0 0 0 0 world left_tag_link 10"/>
+  <node name="right_tag_link" pkg="tf" type="static_transform_publisher" args="$(arg right_tag_x) $(arg right_tag_y) 0 0 0 0 world right_tag_link 10"/>
+
+  <node name="odom_throttler" type="throttle" pkg="topic_tools" args="messages /odom 10 /odom_throttled" />
+  
+  <node pkg="amr_x_communication" type="uwb_server.py" name="uwb_server_node_1" output="screen">
+    <param name="tx_topic" value="/odom_throttled"/>
+    <param name="rx_topic" value="uwb_rx"/>
+    <param name="frequency" value="10"/>
+    <param name="destination" value="26393" type="int"/>
+  </node>
+</launch>
