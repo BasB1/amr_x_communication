@@ -12,7 +12,6 @@ class Communicate(object):
         self.destination = destination
         self.pozyx = pozyx
         self.read_data = ""
-        self.states = False
         self.odom_data = Odometry()
         self.odom_data_prev = Odometry()
         self.rx_info = pzx.RXInfo()

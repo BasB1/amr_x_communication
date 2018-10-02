@@ -72,6 +72,15 @@ class Localize(object):
         self.f4.R = 0.1
         self.f4.alpha = alpha
         
+        self.f5 = KalmanFilter(dim_x=1, dim_z=1, dim_u=1)
+        self.f5.P = 1
+        self.f5.H = np.array([[1.]])
+        self.f5.F = np.array([[1.]])
+        self.f5.B = np.array([[1.]])
+        self.f5.Q = 0.1
+        self.f5.R = 0.1
+        self.f5.alpha = 1000
+        
         self.pozyx.setRangingProtocol(self.ranging_protocol)
         self.br = tf.TransformBroadcaster()
         
@@ -86,11 +95,6 @@ class Localize(object):
         self.pozyx.doRanging(self.D, self.distance_3)
         self.pozyx.doRanging(self.C, self.distance_2, self.B)        
         self.pozyx.doRanging(self.D, self.distance_4, self.B)
-        
-        print(self.distance_1)      
-        print(self.distance_2)   
-        print(self.distance_3)   
-        print(self.distance_4)   
         
         if self.distance_1[1] == 0 :
             self.distance_1[1] = self.distance_prev_1
@@ -154,6 +158,8 @@ class Localize(object):
         ROBOT_x_2 = (LEFT_x_2 + RIGHT_x_2) / 2
         ROBOT_y_2 = (LEFT_y_2 + RIGHT_y_2) / 2
         
+        self.f5.predict()
+        
         ROBOT_w_1 = math.tan((LEFT_x_1 - RIGHT_x_1) / (LEFT_y_1 - RIGHT_y_1))
         if LEFT_y_1 < RIGHT_y_1:
             ROBOT_w_1 = math.degrees(ROBOT_w_1) + 180
@@ -163,10 +169,12 @@ class Localize(object):
         
         ROBOT_w_2 = math.tan((LEFT_x_2 - RIGHT_x_2) / (LEFT_y_2 - RIGHT_y_2))
         if LEFT_y_2 < RIGHT_y_2:
-            ROBOT_w_2 = math.degrees(ROBOT_w_2) + 180
+            ROBOT_w_2 = math.degrees(ROBOT_w_2)
         else:
             ROBOT_w_2 = math.degrees(ROBOT_w_2)
         ROBOT_w_2 = math.radians(ROBOT_w_2) * -1
+        
+        self.f5.update(ROBOT_w_1)
         
         self.br.sendTransform((LEFT_x_1, LEFT_y_1, 0),
                      tf.transformations.quaternion_from_euler(0, 0, 0),
@@ -189,7 +197,7 @@ class Localize(object):
                      "right_tag_2",
                      "world")
         self.br.sendTransform((ROBOT_x_1, ROBOT_y_1, 0),
-                     tf.transformations.quaternion_from_euler(0, 0, ROBOT_w_1),
+                     tf.transformations.quaternion_from_euler(0, 0, self.f5.x[0]),
                      rospy.Time.now(),
                      "robot_pos_1",
                      "world")
@@ -202,7 +210,7 @@ class Localize(object):
 if __name__ == "__main__":
     rospy.init_node('pozyx_triangulation')
     
-    serial_port = pzx.get_first_pozyx_serial_port()
+    serial_port = str(rospy.get_param('~serial_port', pzx.get_first_pozyx_serial_port()))
     
     frequency = float(rospy.get_param('~frequency', 10))
     rate = rospy.Rate(frequency)
@@ -212,8 +220,6 @@ if __name__ == "__main__":
     noise = float(rospy.get_param('~noise', 1))
     
     robot_number = rospy.get_param('~robot_number')
-    left_tag_id = rospy.get_param('~left_tag_id')
-    right_tag_id = rospy.get_param('~right_tag_id')
     
     left_tag_pos_x = float(rospy.get_param('~left_tag_pos_x'))
     left_tag_pos_y = float(rospy.get_param('~left_tag_pos_y'))
