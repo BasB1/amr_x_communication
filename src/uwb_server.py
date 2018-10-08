@@ -43,18 +43,18 @@ class Communicate(object):
         data = Data([ord(c) for c in comp_data])
         pozyx.sendData(self.destination, data)
                 
-    def rxData(self):
+    def rxData(self):       
         pozyx.getRxInfo(self.rx_info)
         data = Data([0]*self.rx_info[1])
         pozyx.readRXBufferData(data)   
-        
         message = str() 
         
         for i in data:
             message = message + chr(i)
-
-        y = json.loads(zlib.decompress(message))
-            
+        
+        s = zlib.decompress(message)
+        y = json.loads(s)
+        
         odom_data_pub = Odometry()
         
         odom_data_pub.pose.pose.position.x = y['p']['px']
@@ -98,7 +98,8 @@ if __name__ == "__main__":
     while not rospy.is_shutdown():
         try:
             pub.publish(r.rxData())
-            rate.sleep()
         except Exception as e:
             #rospy.logerr(e)
-            rate.sleep()
+            pass
+        
+        rate.sleep()

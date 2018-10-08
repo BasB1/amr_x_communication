@@ -1,18 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?> 
 <launch>
-  <node pkg="amr_x_communication" type="uwb_server.py" name="uwb_server_node_1" output="screen">
-    <param name="serial_port" value="/dev/ttyACM0"/>
-    <param name="tx_topic" value="/odom"/>
-    <param name="rx_topic" value="uwb_1_rx"/>
-    <param name="frequency" value="20"/>
-    <param name="destination" value="28207" type="int"/>
-  </node>
 
   <node pkg="amr_x_communication" type="uwb_server.py" name="uwb_server_node_2" output="screen">
     <param name="tx_topic" value="uwb_2_tx"/>
     <param name="rx_topic" value="uwb_2_rx"/>
     <param name="serial_port" value="/dev/ttyACM1"/>
     <param name="frequency" value="20"/>
-    <param name="destination" value="28203" type="int"/>
+    <param name="destination" value="26395" type="int"/>
   </node>
 </launch>

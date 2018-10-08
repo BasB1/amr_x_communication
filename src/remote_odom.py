@@ -17,7 +17,7 @@ class Odom(object):
         self.odom_data = data
     
     def calcZero(self):
-        for i in range(self.itter):
+        for i in range(int(self.itter)):
             try:
                 (trans,rot) = self.listener.lookupTransform('/robot_pos_1', '/world', rospy.Time(0))
                 
@@ -44,16 +44,21 @@ if __name__ == "__main__":
     
     itter = float(rospy.get_param('~itterations', 100.))
     
-    r = Odom()
+    r = Odom(itter)
     rx_topic = 'uwb_rx'
     rospy.Subscriber(rx_topic, Odometry, r.getData)
     
     br = tf.TransformBroadcaster()
+    rospy.sleep(5)
+    x, y, z = r.calcZero()
     
-    x, y, z = r.calcZero(itter)
     zero_pos_x = x / itter
     zero_pos_y = y / itter
     zero_rot_z = z / itter
+    
+    rospy.loginfo(zero_pos_x)
+    rospy.loginfo(zero_pos_y)
+    rospy.loginfo(zero_rot_z)
     
     while not rospy.is_shutdown():    
         br.sendTransform((zero_pos_x, zero_pos_y, 0),
