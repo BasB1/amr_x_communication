@@ -80,9 +80,9 @@ class Localize(object):
         self.f5.H = np.array([[1.]])
         self.f5.F = np.array([[1.]])
         self.f5.B = np.array([[1.]])
-        self.f5.Q = 0.1
+        self.f5.Q = 0.0001
         self.f5.R = 0.1
-        self.f5.alpha = 1000
+        self.f5.alpha = 1
         
         self.pozyx.setRangingProtocol(self.ranging_protocol)
         self.br = tf.TransformBroadcaster()
@@ -93,7 +93,12 @@ class Localize(object):
         # Distance 3 = BC
         # Distance 4 = BD
         # Where A(left) B(right) are local and C(left) D(right) are remote
-
+        
+        self.f1.predict()
+        self.f2.predict()
+        self.f3.predict()
+        self.f4.predict()
+        
         self.pozyx.doRanging(self.C, self.distance_1)
         self.pozyx.doRanging(self.D, self.distance_3)
         self.pozyx.doRanging(self.C, self.distance_2, self.B)        
@@ -112,14 +117,10 @@ class Localize(object):
         self.distance_prev_2 = self.distance_2[1]
         self.distance_prev_3 = self.distance_3[1]
         self.distance_prev_4 = self.distance_4[1]
-        
-        self.f1.predict()
+                
         self.f1.update(self.distance_1[1])
-        self.f2.predict()
         self.f2.update(self.distance_2[1])
-        self.f3.predict()
         self.f3.update(self.distance_3[1])
-        self.f4.predict()
         self.f4.update(self.distance_4[1])       
         
     def triangulationLocal(self):
@@ -169,6 +170,7 @@ class Localize(object):
         else:
             ROBOT_w_1 = math.degrees(ROBOT_w_1)
         ROBOT_w_1 = math.radians(ROBOT_w_1) * -1
+        self.f5.update(ROBOT_w_1)
         
         ROBOT_w_2 = math.tan((LEFT_x_2 - RIGHT_x_2) / (LEFT_y_2 - RIGHT_y_2))
         if LEFT_y_2 < RIGHT_y_2:
@@ -176,8 +178,6 @@ class Localize(object):
         else:
             ROBOT_w_2 = math.degrees(ROBOT_w_2)
         ROBOT_w_2 = math.radians(ROBOT_w_2) * -1
-        
-        self.f5.update(ROBOT_w_1)
         
         self.br.sendTransform((LEFT_x_1, LEFT_y_1, 0),
                      tf.transformations.quaternion_from_euler(0, 0, 0),
@@ -200,7 +200,7 @@ class Localize(object):
                      "right_tag_2",
                      "world")
         self.br.sendTransform((ROBOT_x_1, ROBOT_y_1, 0),
-                     tf.transformations.quaternion_from_euler(0, 0, self.f5.x[0]),
+                     tf.transformations.quaternion_from_euler(0, 0, ROBOT_w_1),
                      rospy.Time.now(),
                      "robot_pos_1",
                      "world")
@@ -279,7 +279,8 @@ class Communicate(object):
 if __name__ == "__main__":
     rospy.init_node('uwb_node')
     
-    serial_port = str(rospy.get_param('~serial_port', pzx.get_first_pozyx_serial_port()))
+    serial_port_1 = str(rospy.get_param('~serial_port_1', pzx.get_first_pozyx_serial_port()))
+    serial_port_2 = str(rospy.get_param('~serial_port_2', pzx.get_first_pozyx_serial_port()))
     frequency = float(rospy.get_param('~frequency', 10))
     rate = rospy.Rate(frequency)
     
@@ -307,7 +308,8 @@ if __name__ == "__main__":
         rospy.logerr("Wrong value given for protocol. Either give: 'fast' or 'precise'")
         ranging_protocol = pzx.POZYX_RANGE_PROTOCOL_FAST
         
-    pozyx = pzx.PozyxSerial(serial_port)
+    pozyx_1 = pzx.PozyxSerial(serial_port_1)
+    pozyx_2 = pzx.PozyxSerial(serial_port_2)
     stream = open(os.path.dirname(os.path.realpath(__file__)) + "/robot_list.yaml", "r")
     robot_list = yaml.load(stream)
     
@@ -317,8 +319,8 @@ if __name__ == "__main__":
     
     pub = rospy.Publisher(rx_topic, Odometry, queue_size = 10)
     
-    loc = Localize(pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise)
-    com = Communicate(pozyx, destination)
+    loc = Localize(pozyx_1, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise)
+    com = Communicate(pozyx_2, destination)
     rospy.Subscriber(tx_topic, Odometry, com.odomData)
     
     while not rospy.is_shutdown():
@@ -328,8 +330,8 @@ if __name__ == "__main__":
 #            rospy.logerr(e)
             pass
         
-        com.txData()
-        rospy.sleep(0.01)
+        #com.txData()
+        rospy.sleep(0.05)
         
         loc.getDistances()
         loc.triangulationLocal()

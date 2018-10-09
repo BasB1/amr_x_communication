@@ -78,8 +78,8 @@ class Localize(object):
         self.f5.F = np.array([[1.]])
         self.f5.B = np.array([[1.]])
         self.f5.Q = 0.1
-        self.f5.R = 0.1
-        self.f5.alpha = 1000
+        self.f5.R = 0.001
+        self.f5.alpha = 1
         
         self.pozyx.setRangingProtocol(self.ranging_protocol)
         self.br = tf.TransformBroadcaster()
@@ -175,6 +175,7 @@ class Localize(object):
         ROBOT_w_2 = math.radians(ROBOT_w_2) * -1
         
         self.f5.update(ROBOT_w_1)
+        print(ROBOT_w_1)
         
         self.br.sendTransform((LEFT_x_1, LEFT_y_1, 0),
                      tf.transformations.quaternion_from_euler(0, 0, 0),

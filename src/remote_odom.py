@@ -17,24 +17,23 @@ class Odom(object):
         self.odom_data = data
     
     def calcZero(self):
-        for i in range(int(self.itter)):
-            try:
-                (trans,rot) = self.listener.lookupTransform('/robot_pos_1', '/world', rospy.Time(0))
-                
-                self._x += trans[0] + (self.odom_data.pose.pose.postions.x * -1)
-                self._y += trans[1] + (self.odom_data.pose.pose.postions.y * -1)
-                
-                quaternion = (
-                    self.odom_data.pose.pose.orientation.x,
-                    self.odom_data.pose.pose.orientation.y,
-                    self.odom_data.pose.pose.orientation.z,
-                    self.odom_data.pose.pose.orientation.w)
-                euler = tf.transformations.euler_from_quaternion(quaternion)
-                
-                self._z += euler[2] + rot[2]
-                rospy.sleep(0.1 / self.itter)
-            except:
-                i = i - 1
+        try:
+            (trans,rot) = self.listener.lookupTransform('/robot_pos_1', '/world', rospy.Time(0))
+            
+            self._x = trans[0] + (self.odom_data.pose.pose.position.x)
+            self._y = trans[1] + (self.odom_data.pose.pose.position.y)
+
+            quaternion = (
+                self.odom_data.pose.pose.orientation.x,
+                self.odom_data.pose.pose.orientation.y,
+                self.odom_data.pose.pose.orientation.z,
+                self.odom_data.pose.pose.orientation.w)
+            euler = tf.transformations.euler_from_quaternion(quaternion)
+            
+            self._z = euler[2] + rot[2]
+            rospy.sleep(0.1 / self.itter)
+        except:
+            pass
         
         return self._x, self._y, self._z
         
@@ -49,21 +48,13 @@ if __name__ == "__main__":
     rospy.Subscriber(rx_topic, Odometry, r.getData)
     
     br = tf.TransformBroadcaster()
-    rospy.sleep(5)
-    x, y, z = r.calcZero()
     
-    zero_pos_x = x / itter
-    zero_pos_y = y / itter
-    zero_rot_z = z / itter
-    
-    rospy.loginfo(zero_pos_x)
-    rospy.loginfo(zero_pos_y)
-    rospy.loginfo(zero_rot_z)
-    
-    while not rospy.is_shutdown():    
-        br.sendTransform((zero_pos_x, zero_pos_y, 0),
-                     tf.transformations.quaternion_from_euler(0, 0, zero_rot_z),
+    while not rospy.is_shutdown():  
+        x, y, z = r.calcZero()
+        print(x, y, z)
+        br.sendTransform((x, y, 0),
+                     tf.transformations.quaternion_from_euler(0, 0, z),
                      rospy.Time.now(),
                      "zero",
-                     "robot_pos_1")
+                     "world")
         rate.sleep()

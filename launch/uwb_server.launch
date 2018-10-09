@@ -5,7 +5,7 @@
     <param name="tx_topic" value="uwb_2_tx"/>
     <param name="rx_topic" value="uwb_2_rx"/>
     <param name="serial_port" value="/dev/ttyACM1"/>
-    <param name="frequency" value="20"/>
+    <param name="frequency" value="30"/>
     <param name="destination" value="26395" type="int"/>
   </node>
 </launch>
