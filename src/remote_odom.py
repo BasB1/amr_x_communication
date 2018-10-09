@@ -3,6 +3,7 @@
 import rospy
 from nav_msgs.msg import Odometry
 import tf
+import math
 
 class Odom(object):
     def __init__(self, itter):
@@ -30,7 +31,7 @@ class Odom(object):
                 self.odom_data.pose.pose.orientation.w)
             euler = tf.transformations.euler_from_quaternion(quaternion)
             
-            self._z = euler[2] + rot[2]
+            self._z = euler[2] + rot[2]  + math.pi
             rospy.sleep(0.1 / self.itter)
         except:
             pass
@@ -51,7 +52,7 @@ if __name__ == "__main__":
     
     while not rospy.is_shutdown():  
         x, y, z = r.calcZero()
-        print(x, y, z)
+
         br.sendTransform((x, y, 0),
                      tf.transformations.quaternion_from_euler(0, 0, z),
                      rospy.Time.now(),

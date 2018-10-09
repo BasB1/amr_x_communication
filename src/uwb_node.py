@@ -243,12 +243,12 @@ class Communicate(object):
         s = json.dumps(x)
         comp_data = zlib.compress(str(s))
         data = Data([ord(c) for c in comp_data])
-        pozyx.sendData(self.destination, data)
+        self.pozyx.sendData(self.destination, data)
                 
     def rxData(self):       
-        pozyx.getRxInfo(self.rx_info)
+        self.pozyx.getRxInfo(self.rx_info)
         data = Data([0]*self.rx_info[1])
-        pozyx.readRXBufferData(data)   
+        self.pozyx.readRXBufferData(data)   
         message = str() 
         
         for i in data:
@@ -320,20 +320,22 @@ if __name__ == "__main__":
     pub = rospy.Publisher(rx_topic, Odometry, queue_size = 10)
     
     loc = Localize(pozyx_1, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise)
-    com = Communicate(pozyx_2, destination)
+    com = Communicate(pozyx_1, destination)
     rospy.Subscriber(tx_topic, Odometry, com.odomData)
-    
+    loop_count = 0
     while not rospy.is_shutdown():
-        try:
-            pub.publish(com.rxData())
-        except Exception as e:
-#            rospy.logerr(e)
-            pass
-        
-        #com.txData()
-        rospy.sleep(0.05)
-        
+        if loop_count == 4:
+            try:
+                pub.publish(com.rxData())
+            except Exception as e:
+                pass
+    
+            com.txData()
+            rospy.sleep(0.05)
+            loop_count = 0
+            
         loc.getDistances()
         loc.triangulationLocal()
-        
+        loop_count += 1
+            
         rate.sleep()

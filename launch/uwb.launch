@@ -22,7 +22,7 @@
 
     <param name="tx_topic" value="/odom_throttled"/>
     <param name="rx_topic" value="uwb_rx"/>
-    <param name="destination" value="26466" type="int"/>
+    <param name="destination" value="26393" type="int"/>
   </node>
 
   <node name="left_tag_link" pkg="tf" type="static_transform_publisher" args="$(arg left_tag_x) $(arg left_tag_y) 0 0 0 0 world left_tag_link 10"/>
