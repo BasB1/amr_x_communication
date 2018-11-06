@@ -12,10 +12,11 @@ import json
 from pypozyx import Data
 import zlib
 
-class Transform():
-    def __init__(self):
+class Transform(object):
+    def __init__(self, link_to_robot):
          self.broadcaster = tf.TransformBroadcaster()
          self.listener = tf.TransformListener()
+         self.link_to_robot = link_to_robot
          
     def getTransformData(self):
         (self.trans, self.rot) = self.listener.lookupTransform('/robot_pos_1', '/world', rospy.Time(0))
@@ -42,21 +43,22 @@ class Transform():
                      tf.transformations.quaternion_from_euler(0, 0, self._z),
                      rospy.Time.now(),
                      "child_frame",
-                     "world")
+                     self.link_to_robot)
     
     def publishOF(self, x, y, z):
         self.broadcaster.sendTransform((x, y, 0),
                      tf.transformations.quaternion_from_euler(0, 0, z),
                      rospy.Time.now(),
                      "base_footprint",
-                     "child_frame")
+                     self.link_to_robot)
 
 class Localize(object):
-    def __init__(self, pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise):
+    def __init__(self, pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, link_to_robot):
         self.pozyx = pozyx
         self.ranging_protocol = ranging_protocol
         self.tag_pos = tag_pos
         self.robot_number = robot_number
+        self.link_to_robot = link_to_robot
         
         self.distance_1 = pzx.DeviceRange()
         self.distance_2 = pzx.DeviceRange()
@@ -231,32 +233,32 @@ class Localize(object):
                      tf.transformations.quaternion_from_euler(0, 0, 0),
                      rospy.Time.now(),
                      "left_tag_1",
-                     "world")
+                     self.link_to_robot)
         self.br.sendTransform((LEFT_x_2, LEFT_y_2, 0),
                      tf.transformations.quaternion_from_euler(0, 0, 0),
                      rospy.Time.now(),
                      "left_tag_2",
-                     "world")
+                     self.link_to_robot)
         self.br.sendTransform((RIGHT_x_1, RIGHT_y_1, 0),
                      tf.transformations.quaternion_from_euler(0, 0, 0),
                      rospy.Time.now(),
                      "right_tag_1",
-                     "world")
+                     self.link_to_robot)
         self.br.sendTransform((RIGHT_x_2, RIGHT_y_2, 0),
                      tf.transformations.quaternion_from_euler(0, 0, 0),
                      rospy.Time.now(),
                      "right_tag_2",
-                     "world")
+                     self.link_to_robot)
         self.br.sendTransform((ROBOT_x_1, ROBOT_y_1, 0),
                      tf.transformations.quaternion_from_euler(0, 0, ROBOT_w_1),
                      rospy.Time.now(),
                      "robot_pos_1",
-                     "world")
+                     self.link_to_robot)
         self.br.sendTransform((ROBOT_x_2, ROBOT_y_2, 0),
                      tf.transformations.quaternion_from_euler(0, 0, ROBOT_w_2),
                      rospy.Time.now(),
                      "robot_pos_2",
-                     "world")
+                     self.link_to_robot)
 
 class Communicate(object):
     def __init__(self, pozyx, destination):
@@ -326,40 +328,37 @@ class Communicate(object):
 
 def main():
     distance = loc.doRanging()
-    rospy.loginfo(distance)
+
     if distance < loc_dis:
-        stat = 'loc'
-    elif distance <= com_dis:
-        stat = 'com'
-    elif distance >= loc_dis + 1:
-        stat = 'none'
-    
-    if stat == 'loc':
         loc.getDistances()
         loc.triangulationLocal()
+        
         try:
             trf.getTransformData()
         except Exception as e:
             pass
-    elif stat == 'com':
+        
+    elif distance <= com_dis:
         trf.calcZero()
+        
         try:
             odom_data = com.rxData()
             pub.publish(odom_data)
         except Exception as e:
             odom_data = Odometry()
             pass
+        
         com.txData()
+        
         x = odom_data.pose.pose.position.x
         y = odom_data.pose.pose.position.y
         z = odom_data.pose.pose.position.z
-        trf.publishOF(x, y, z)
-    elif stat == 'none':
-        pass
         
+        trf.publishOF(x, y, z)
+        
+    elif distance >= loc_dis + 1:
+        pass
     
-    
-
 if __name__ == "__main__":
     rospy.init_node('uwb_node')
     
@@ -378,13 +377,14 @@ if __name__ == "__main__":
     left_tag_pos_y = float(rospy.get_param('~left_tag_pos_y'))
     right_tag_pos_x = float(rospy.get_param('~right_tag_pos_x'))
     right_tag_pos_y = float(rospy.get_param('~right_tag_pos_y'))
+    link_to_robot = str(rospy.get_param('~link', 'base_footprint'))
     
     loc_dis = float(rospy.get_param('~loc_dis', 6))
     com_dis = float(rospy.get_param('~com_dis', 4))
     
     tag_pos = [left_tag_pos_x, left_tag_pos_y, right_tag_pos_x, right_tag_pos_y]
     
-    protocol = str(rospy.get_param('~protocol', 'fast')) 
+    protocol = str(rospy.get_param('~protocol', 'precise')) 
     
     if protocol == 'fast':
         ranging_protocol = pzx.POZYX_RANGE_PROTOCOL_FAST
@@ -392,9 +392,10 @@ if __name__ == "__main__":
         ranging_protocol = pzx.POZYX_RANGE_PROTOCOL_PRECISION
     else:
         rospy.logerr("Wrong value given for protocol. Either give: 'fast' or 'precise'")
-        ranging_protocol = pzx.POZYX_RANGE_PROTOCOL_FAST
+        ranging_protocol = pzx.POZYX_RANGE_PROTOCOL_PRECISION
         
     pozyx = pzx.PozyxSerial(serial_port)
+    pozyx.setRangingProtocol(ranging_protocol)
     stream = open(os.path.dirname(os.path.realpath(__file__)) + "/robot_list.yaml", "r")
     robot_list = yaml.load(stream)
     
@@ -404,9 +405,9 @@ if __name__ == "__main__":
     
     pub = rospy.Publisher(rx_topic, Odometry, queue_size = 10)
     
-    loc = Localize(pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise)
+    loc = Localize(pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, link_to_robot)
     com = Communicate(pozyx, destination)
-    trf = Transform()
+    trf = Transform(link_to_robot)
     
     rospy.Subscriber(tx_topic, Odometry, com.odomData)
     
