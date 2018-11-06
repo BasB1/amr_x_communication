@@ -422,12 +422,10 @@ if __name__ == "__main__":
     rospy.Subscriber(tx_topic, Odometry, com.odomData)
     rospy.Subscriber(rx_topic, Odometry, trf.odomData)
     
-    loc.doRanging()
-    
     while not rospy.is_shutdown():
-        mask_rem = pzx.SingleRegister()
-        pozyx.getInterruptStatus(mask_rem, robot_list[2]['left'])
-        
-        if mask_rem[0] == 4:
-            main()        
-            rate.sleep()
+#        mask_rem = pzx.SingleRegister()
+#        pozyx.getInterruptStatus(mask_rem, robot_list[2]['left'])
+#        
+#        if mask_rem[0] == 4:
+        main()        
+        rate.sleep()
