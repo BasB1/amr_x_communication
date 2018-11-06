@@ -69,9 +69,11 @@ class Localize(object):
         if robot_number == 1:
             self.C = robot_list[2]['left']
             self.D = robot_list[2]['right']
+            self.destination = robot_list[2]['left']
         elif robot_number == 2:
             self.C = robot_list[1]['left']
             self.D = robot_list[1]['right']
+            self.destination = robot_list[1]['left']
         
         self.distance_prev_1 = 0
         self.distance_prev_2 = 0
