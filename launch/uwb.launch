@@ -4,7 +4,7 @@
   <arg name="left_tag_y" default="0.255" />
   <arg name="right_tag_x" default="0" />
   <arg name="right_tag_y" default="-0.255" />
-  <arg name="link" default="base_footprint" />
+  <arg name="link" default="plate_top_link" />
 
   <node pkg="amr_x_communication" type="uwb_node.py" name="localization_node" output="screen">
     <param name="robot_number" value="2"/>

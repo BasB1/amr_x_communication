@@ -17,10 +17,14 @@ class Transform(object):
          self.broadcaster = tf.TransformBroadcaster()
          self.listener = tf.TransformListener()
          self.link_to_robot = link_to_robot
+         self.odom_data = Odometry()
          
     def getTransformData(self):
         (self.trans, self.rot) = self.listener.lookupTransform('/robot_pos_1', '/world', rospy.Time(0))
-         
+      
+    def odomData(self, data):
+        self.odom_data = data
+        
     def calcZero(self):
         try:
             self._x = self.trans[0] + (self.odom_data.pose.pose.position.x)
@@ -148,10 +152,10 @@ class Localize(object):
         self.f3.predict()
         self.f4.predict()
         
-        self.pozyx.doRanging(self.C, self.distance_1)
-        self.pozyx.doRanging(self.D, self.distance_3)
-        self.pozyx.doRanging(self.C, self.distance_2, self.B)        
-        self.pozyx.doRanging(self.D, self.distance_4, self.B)
+        self.pozyx.getDeviceRangeInfo(self.C, self.distance_1)
+        self.pozyx.getDeviceRangeInfo(self.D, self.distance_3)
+        self.pozyx.getDeviceRangeInfo(self.C, self.distance_2, self.B)        
+        self.pozyx.getDeviceRangeInfo(self.D, self.distance_4, self.B)
         
         if self.distance_1[1] == 0 :
             self.distance_1[1] = self.distance_prev_1
@@ -329,12 +333,6 @@ class Communicate(object):
 
 def main():
     distance = loc.doRanging()
-    
-    while True:
-        mask = Data([0])
-        pozyx.getInterruptStatus(mask)
-        if mask[0] == 0:
-            break
         
     if distance < loc_dis:
         loc.getDistances()
@@ -344,9 +342,14 @@ def main():
             trf.getTransformData()
         except Exception as e:
             pass
+        calc_zero = True
         
     elif distance <= com_dis:
-        trf.calcZero()
+        if calc_zero == True:
+            trf.calcZero()
+            calc_zero = False
+        else:
+            pass
         
         try:
             odom_data = com.rxData()
@@ -360,7 +363,7 @@ def main():
         x = odom_data.pose.pose.position.x
         y = odom_data.pose.pose.position.y
         z = odom_data.pose.pose.position.z
-        
+        trf.publishCF()
         trf.publishOF(x, y, z)
         
     elif distance >= loc_dis + 1:
@@ -417,7 +420,14 @@ if __name__ == "__main__":
     trf = Transform(link_to_robot)
     
     rospy.Subscriber(tx_topic, Odometry, com.odomData)
+    rospy.Subscriber(rx_topic, Odometry, trf.odomData)
+    
+    loc.doRanging()
     
     while not rospy.is_shutdown():
-        main()         
-        rate.sleep()
+        mask_rem = pzx.SingleRegister()
+        pozyx.getInterruptStatus(mask_rem, robot_list[2]['left'])
+        
+        if mask_rem[0] == 4:
+            main()        
+            rate.sleep()
