@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<launch>
+  <arg name="init_robot_x"/>
+  <arg name="init_robot_y"/>
+  <arg name="robot_name"/>
+
+  <param name="robot_description" command="$(find xacro)/xacro.py $(find amr_x_communication)/turtlebot_description/robots/kobuki_hexagons_kinect.urdf.xacro" />
+  
+  <!-- Gazebo model spawner -->
+  <node name="spawn_turtlebot_model" pkg="gazebo_ros" type="spawn_model"
+        args="-x $(arg init_robot_x) -y $(arg init_robot_y) -z 0 -unpause -urdf -param robot_description -model $(arg robot_name)"/>
+  
+  <!-- Velocity muxer -->
+  <node pkg="nodelet" type="nodelet" name="mobile_base_nodelet_manager" args="manager"/>
+  <node pkg="nodelet" type="nodelet" name="cmd_vel_mux"
+        args="load yocs_cmd_vel_mux/CmdVelMuxNodelet mobile_base_nodelet_manager">
+    <param name="yaml_cfg_file" value="$(find turtlebot_bringup)/param/mux.yaml" />
+    <remap from="cmd_vel_mux/output" to="mobile_base/commands/velocity"/>
+  </node>
+
+  <!-- Bumper/cliff to pointcloud (not working, as it needs sensors/core messages) -->
+  <include file="$(find turtlebot_bringup)/launch/includes/kobuki/bumper2pc.launch.xml"/>
+</launch>

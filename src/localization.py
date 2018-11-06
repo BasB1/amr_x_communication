@@ -93,7 +93,7 @@ class Localize(object):
 
         self.pozyx.doRanging(self.C, self.distance_1)
         self.pozyx.doRanging(self.D, self.distance_3)
-        self.pozyx.doRanging(self.C, self.distance_2, self.B)        
+        self.pozyx.doRanging(self.C, self.distance_2, self.B)    
         self.pozyx.doRanging(self.D, self.distance_4, self.B)
         
         if self.distance_1[1] == 0 :
@@ -160,7 +160,16 @@ class Localize(object):
         
         self.f5.predict()
         
-        ROBOT_w_1 = math.tan((LEFT_x_1 - RIGHT_x_1) / (LEFT_y_1 - RIGHT_y_1))
+        dx = LEFT_x_1 - RIGHT_x_1
+        dy = LEFT_y_1 - RIGHT_y_1
+        
+        if dx > dy:
+            ROBOT_w_1 = math.tan((dx) / (dy))
+        elif dx < dy:
+            ROBOT_w_1 = math.tan((dy) / (dx))
+        else:
+            ROBOT_w_1 = 0
+            
         if LEFT_y_1 < RIGHT_y_1:
             ROBOT_w_1 = math.degrees(ROBOT_w_1) + 180
         else:
@@ -175,7 +184,6 @@ class Localize(object):
         ROBOT_w_2 = math.radians(ROBOT_w_2) * -1
         
         self.f5.update(ROBOT_w_1)
-        print(ROBOT_w_1)
         
         self.br.sendTransform((LEFT_x_1, LEFT_y_1, 0),
                      tf.transformations.quaternion_from_euler(0, 0, 0),

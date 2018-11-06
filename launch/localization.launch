@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<launch>
+  <arg name="left_tag_x" default="0" />
+  <arg name="left_tag_y" default="0.28575" />
+  <arg name="right_tag_x" default="0" />
+  <arg name="right_tag_y" default="-0.28575" />
+
+  <node pkg="amr_x_communication" type="localization.py" name="localization_node" output="screen">
+    <param name="robot_number" value="1"/>
+    <param name="serial_port" value="/dev/ttyACM0"/>
+    <param name="frequency" value="30"/>
+
+    <param name="left_tag_pos_x" value="$(arg left_tag_x)"/>
+    <param name="left_tag_pos_y" value="$(arg left_tag_y)"/>
+    <param name="right_tag_pos_x" value="$(arg right_tag_x)"/>
+    <param name="right_tag_pos_y" value="$(arg right_tag_y)"/>
+    
+    <param name="loc_dis" value="3"/> <!--Distance to start localization-->
+    <param name="com_dis" value="2"/> <!--Distance to start communication-->
+    
+    <!--Filter settings for localization-->
+    <param name="alpha" value="1"/>
+    <param name="noise" value="0.0001"/>
+    <param name="protocol" value="fast"/>
+
+    <!--Communication settings-->
+    <param name="tx_topic" value="/odom_throttled"/>
+    <param name="rx_topic" value="uwb_rx"/>
+    <param name="destination" value="26393" type="int"/>
+  </node>
+
+  <node name="left_tag_link" pkg="tf" type="static_transform_publisher" args="$(arg left_tag_x) $(arg left_tag_y) 0 0 0 0 world left_tag_link 10"/>
+  <node name="right_tag_link" pkg="tf" type="static_transform_publisher" args="$(arg right_tag_x) $(arg right_tag_y) 0 0 0 0 world right_tag_link 10"/>
+
+  <node name="odom_throttler" type="throttle" pkg="topic_tools" args="messages /odom 30 /odom_throttled" />
+
+  <!--node pkg="robot_localization" type="ekf_localization_node" name="ekf_localization" clear_params="true" output="screen">
+    <rosparam command="load" file="$(find amr_x_communication)/params/ekf_template.yaml" />
+  </node-->
+</launch>

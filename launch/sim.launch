@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<launch>
+  <group ns="turtle_1">
+    <param name="tf_prefix" value="turtle_1_tf" />
+    <include file="$(find amr_x_communication)/launch/includes/one_turtle.launch">
+      <arg name="robot_name" value="turtle_1"/>
+      <arg name="robot_tf_prefix" value="turtle_1_tf"/>
+      <arg name="init_x" value="6"/>
+      <arg name="init_y" value="-12"/>
+    </include>
+  </group>
+
+  <group ns="turtle_2">
+    <param name="tf_prefix" value="turtle_2_tf" />
+    <include file="$(find amr_x_communication)/launch/includes/one_turtle.launch">
+      <arg name="robot_tf_prefix" value="turtle_2_tf"/>
+      <arg name="robot_name" value="turtle_2"/>
+      <arg name="init_x" value="6"/>
+      <arg name="init_y" value="-11"/>
+    </include>
+  </group>
+
+  <group ns="turtle_3">
+    <param name="tf_prefix" value="turtle_3_tf" />
+    <include file="$(find amr_x_communication)/launch/includes/one_turtle.launch">
+      <arg name="robot_tf_prefix" value="turtle_3_tf"/>
+      <arg name="robot_name" value="turtle_3"/>
+      <arg name="init_x" value="6"/>
+      <arg name="init_y" value="-10"/>
+    </include>
+  </group>
+
+  <group ns="turtle_4">
+    <param name="tf_prefix" value="turtle_4_tf" />
+    <include file="$(find amr_x_communication)/launch/includes/one_turtle.launch">
+      <arg name="robot_tf_prefix" value="turtle_4_tf"/>
+      <arg name="robot_name" value="turtle_4"/>
+      <arg name="init_x" value="6"/>
+      <arg name="init_y" value="-9"/>
+    </include>
+  </group>
+
+  <include file="$(find amr_x_communication)/launch/includes/turtlebot_world.launch"/>
+</launch>

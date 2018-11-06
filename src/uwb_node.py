@@ -12,6 +12,45 @@ import json
 from pypozyx import Data
 import zlib
 
+class Transform():
+    def __init__(self):
+         self.broadcaster = tf.TransformBroadcaster()
+         self.listener = tf.TransformListener()
+         
+    def getTransformData(self):
+        (self.trans, self.rot) = self.listener.lookupTransform('/robot_pos_1', '/world', rospy.Time(0))
+         
+    def calcZero(self):
+        try:
+            self._x = self.trans[0] + (self.odom_data.pose.pose.position.x)
+            self._y = self.trans[1] + (self.odom_data.pose.pose.position.y)
+
+            quaternion = (
+                self.odom_data.pose.pose.orientation.x,
+                self.odom_data.pose.pose.orientation.y,
+                self.odom_data.pose.pose.orientation.z,
+                self.odom_data.pose.pose.orientation.w)
+            euler = tf.transformations.euler_from_quaternion(quaternion)
+            
+            self._z = euler[2] + self.rot[2]  + math.pi
+            rospy.sleep(0.1 / self.itter)
+        except:
+            pass
+        
+    def publishCF(self):
+        self.br.sendTransform((self._x, self._y, 0),
+                     tf.transformations.quaternion_from_euler(0, 0, self._z),
+                     rospy.Time.now(),
+                     "child_frame",
+                     "world")
+    
+    def piblishOF(self, x, y, z):
+        self.br.sendTransform((x, y, 0),
+                     tf.transformations.quaternion_from_euler(0, 0, z),
+                     rospy.Time.now(),
+                     "base_footprint",
+                     "child_frame")
+
 class Localize(object):
     def __init__(self, pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise):
         self.pozyx = pozyx
@@ -80,13 +119,19 @@ class Localize(object):
         self.f5.H = np.array([[1.]])
         self.f5.F = np.array([[1.]])
         self.f5.B = np.array([[1.]])
-        self.f5.Q = 0.0001
+        self.f5.Q = 0.001
         self.f5.R = 0.1
         self.f5.alpha = 1
         
         self.pozyx.setRangingProtocol(self.ranging_protocol)
         self.br = tf.TransformBroadcaster()
-        
+
+    def doRanging(self):        
+        self.f1.predict()
+        self.pozyx.doRanging(self.C, self.distance_1)
+        self.f1.update(self.distance_1[1])
+        return self.f1.x[0] * 0.001
+              
     def getDistances(self):
         # Distance 1 = AC
         # Distance 2 = AD
@@ -170,6 +215,7 @@ class Localize(object):
         else:
             ROBOT_w_1 = math.degrees(ROBOT_w_1)
         ROBOT_w_1 = math.radians(ROBOT_w_1) * -1
+        
         self.f5.update(ROBOT_w_1)
         
         ROBOT_w_2 = math.tan((LEFT_x_2 - RIGHT_x_2) / (LEFT_y_2 - RIGHT_y_2))
@@ -276,11 +322,42 @@ class Communicate(object):
         
         return odom_data_pub
 
+def main():
+    distance = loc.doRanging()
+    
+    if distance > loc_dis:
+        stat = 'loc'
+    elif distance >= com_dis:
+        stat = 'com'
+    elif distance <= loc_dis + 1:
+        stat = 'none'
+    
+    if stat == 'loc':
+        loc.getDistances()
+        loc.triangulationLocal()
+        trf.getTransformData()
+    elif stat == 'com':
+        trf.calcZero()
+        try:
+            odom_data = com.rxData()
+            pub.publish(odom_data)
+        except Exception as e:
+            pass
+        com.txData()
+        x = odom_data.pose.pose.position.x
+        y = odom_data.pose.pose.position.y
+        z = odom_data.pose.pose.position.z
+        trf.publishCF(x, y, z)
+    elif stat == 'none':
+        pass
+        
+    
+    
+
 if __name__ == "__main__":
     rospy.init_node('uwb_node')
     
-    serial_port_1 = str(rospy.get_param('~serial_port_1', pzx.get_first_pozyx_serial_port()))
-    serial_port_2 = str(rospy.get_param('~serial_port_2', pzx.get_first_pozyx_serial_port()))
+    serial_port = str(rospy.get_param('~serial_port', pzx.get_first_pozyx_serial_port()))
     frequency = float(rospy.get_param('~frequency', 10))
     rate = rospy.Rate(frequency)
     
@@ -296,6 +373,9 @@ if __name__ == "__main__":
     right_tag_pos_x = float(rospy.get_param('~right_tag_pos_x'))
     right_tag_pos_y = float(rospy.get_param('~right_tag_pos_y'))
     
+    loc_dis = float(rospy.get_param('~loc_dis', 6))
+    com_dis = float(rospy.get_param('~com_dis', 4))
+    
     tag_pos = [left_tag_pos_x, left_tag_pos_y, right_tag_pos_x, right_tag_pos_y]
     
     protocol = str(rospy.get_param('~protocol', 'fast')) 
@@ -308,8 +388,7 @@ if __name__ == "__main__":
         rospy.logerr("Wrong value given for protocol. Either give: 'fast' or 'precise'")
         ranging_protocol = pzx.POZYX_RANGE_PROTOCOL_FAST
         
-    pozyx_1 = pzx.PozyxSerial(serial_port_1)
-    pozyx_2 = pzx.PozyxSerial(serial_port_2)
+    pozyx = pzx.PozyxSerial(serial_port)
     stream = open(os.path.dirname(os.path.realpath(__file__)) + "/robot_list.yaml", "r")
     robot_list = yaml.load(stream)
     
@@ -319,23 +398,12 @@ if __name__ == "__main__":
     
     pub = rospy.Publisher(rx_topic, Odometry, queue_size = 10)
     
-    loc = Localize(pozyx_1, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise)
-    com = Communicate(pozyx_1, destination)
-    rospy.Subscriber(tx_topic, Odometry, com.odomData)
-    loop_count = 0
-    while not rospy.is_shutdown():
-        if loop_count == 4:
-            try:
-                pub.publish(com.rxData())
-            except Exception as e:
-                pass
+    loc = Localize(pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise)
+    com = Communicate(pozyx, destination)
+    trf = Transform()
     
-            com.txData()
-            rospy.sleep(0.05)
-            loop_count = 0
-            
-        loc.getDistances()
-        loc.triangulationLocal()
-        loop_count += 1
-            
+    rospy.Subscriber(tx_topic, Odometry, com.odomData)
+    
+    while not rospy.is_shutdown():
+        main()         
         rate.sleep()
