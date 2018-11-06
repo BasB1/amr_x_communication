@@ -57,12 +57,13 @@ class Transform(object):
                      self.link_to_robot)
 
 class Localize(object):
-    def __init__(self, pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, link_to_robot):
+    def __init__(self, pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging):
         self.pozyx = pozyx
         self.ranging_protocol = ranging_protocol
         self.tag_pos = tag_pos
         self.robot_number = robot_number
         self.link_to_robot = link_to_robot
+        self.do_ranging = do_ranging
         
         self.distance_1 = pzx.DeviceRange()
         self.distance_2 = pzx.DeviceRange()
@@ -92,7 +93,7 @@ class Localize(object):
         self.f1.F = np.array([[1.]])
         self.f1.B = np.array([[1.]])
         self.f1.Q = noise
-        self.f1.R = 0.1
+        self.f1.R = R
         self.f1.alpha = alpha
         
         self.f2 = KalmanFilter(dim_x=1, dim_z=1, dim_u=1)
@@ -101,7 +102,7 @@ class Localize(object):
         self.f2.F = np.array([[1.]])
         self.f2.B = np.array([[1.]])
         self.f2.Q = noise
-        self.f2.R = 0.1
+        self.f2.R = R
         self.f2.alpha = alpha
         
         self.f3 = KalmanFilter(dim_x=1, dim_z=1, dim_u=1)
@@ -110,7 +111,7 @@ class Localize(object):
         self.f3.F = np.array([[1.]])
         self.f3.B = np.array([[1.]])
         self.f3.Q = noise
-        self.f3.R = 0.1
+        self.f3.R = R
         self.f3.alpha = alpha
         
         self.f4 = KalmanFilter(dim_x=1, dim_z=1, dim_u=1)
@@ -119,7 +120,7 @@ class Localize(object):
         self.f4.F = np.array([[1.]])
         self.f4.B = np.array([[1.]])
         self.f4.Q = noise
-        self.f4.R = 0.1
+        self.f4.R = R
         self.f4.alpha = alpha
         
         self.f5 = KalmanFilter(dim_x=1, dim_z=1, dim_u=1)
@@ -128,17 +129,23 @@ class Localize(object):
         self.f5.F = np.array([[1.]])
         self.f5.B = np.array([[1.]])
         self.f5.Q = 0.001
-        self.f5.R = 0.1
+        self.f5.R = 0.3
         self.f5.alpha = 1
         
         self.pozyx.setRangingProtocol(self.ranging_protocol)
         self.br = tf.TransformBroadcaster()
-
-    def doRanging(self):        
-        self.f1.predict()
-        self.pozyx.doRanging(self.C, self.distance_1)
-        self.f1.update(self.distance_1[1])
-        return self.f1.x[0] * 0.001
+    
+    def getDistance(self):
+        if self.do_ranging == 0:
+            self.f1.predict()
+            self.pozyx.getDeviceRangeInfo(self.C, self.distance_1)
+            self.f1.update(self.distance_1[1])
+            return self.f1.x[0] * 0.001
+        elif self.do_ranging == 1:
+            self.f1.predict()
+            self.pozyx.doRanging(self.C, self.distance_1)
+            self.f1.update(self.distance_1[1])
+            return self.f1.x[0] * 0.001
               
     def getDistances(self):
         # Distance 1 = AC
@@ -152,10 +159,16 @@ class Localize(object):
         self.f3.predict()
         self.f4.predict()
         
-        self.pozyx.getDeviceRangeInfo(self.C, self.distance_1)
-        self.pozyx.getDeviceRangeInfo(self.D, self.distance_3)
-        self.pozyx.getDeviceRangeInfo(self.C, self.distance_2, self.B)        
-        self.pozyx.getDeviceRangeInfo(self.D, self.distance_4, self.B)
+        if self.do_ranging == 0:
+            self.pozyx.getDeviceRangeInfo(self.C, self.distance_1)
+            self.pozyx.getDeviceRangeInfo(self.D, self.distance_3)
+            self.pozyx.getDeviceRangeInfo(self.C, self.distance_2, self.B)        
+            self.pozyx.getDeviceRangeInfo(self.D, self.distance_4, self.B)
+        elif self.do_ranging == 1:
+            self.pozyx.doRanging(self.C, self.distance_1)
+            self.pozyx.doRanging(self.D, self.distance_3)
+            self.pozyx.doRanging(self.C, self.distance_2, self.B)        
+            self.pozyx.doRanging(self.D, self.distance_4, self.B)
         
         if self.distance_1[1] == 0 :
             self.distance_1[1] = self.distance_prev_1
@@ -266,8 +279,11 @@ class Localize(object):
                      self.link_to_robot)
 
 class Communicate(object):
-    def __init__(self, pozyx, destination):
-        self.destination = destination
+    def __init__(self, pozyx):
+        if robot_number == 1:
+            self.destination = robot_list[2]['left']
+        elif robot_number == 2:
+            self.destination = robot_list[1]['left']
         self.pozyx = pozyx
         self.read_data = ""
         self.odom_data = Odometry()
@@ -279,24 +295,18 @@ class Communicate(object):
         
     def txData(self):
         x = {
-           "p":  #pose
-                {"px": round(self.odom_data.pose.pose.position.x, 3), #position
-                "py": round(self.odom_data.pose.pose.position.y, 3),
-                "pz": round(self.odom_data.pose.pose.position.z, 3),
-                "ox": round(self.odom_data.pose.pose.orientation.x, 3), #orientation
-                "oy": round(self.odom_data.pose.pose.orientation.y, 3),
-                "oz": round(self.odom_data.pose.pose.orientation.z, 3),
-                "ow": round(self.odom_data.pose.pose.orientation.w, 3)},
-            "t":  #twist
-                {"lx": round(self.odom_data.twist.twist.linear.x, 3), #linear
-                "ly": round(self.odom_data.twist.twist.linear.y, 3),
-                "lz": round(self.odom_data.twist.twist.linear.z, 3),
-                "ax": round(self.odom_data.twist.twist.angular.x, 3), #angulaer
-                "ay": round(self.odom_data.twist.twist.angular.y, 3),
-                "az": round(self.odom_data.twist.twist.angular.z, 3)}
+                "a": self.odom_data.header.frame_id, #frame id
+                "b": self.odom_data.child_frame_id, #child frame id
+                "c": round(self.odom_data.pose.pose.position.x, 4),
+                "d": round(self.odom_data.pose.pose.position.y, 4),
+                "e": round(self.odom_data.pose.pose.orientation.z, 4), 
+                "f": round(self.odom_data.pose.pose.orientation.w, 4),
+                "g": round(self.odom_data.twist.twist.linear.x, 4),
+                "h": round(self.odom_data.twist.twist.angular.z, 4)
             }
         s = json.dumps(x)
         comp_data = zlib.compress(str(s))
+        rospy.loginfo(len(comp_data))
         data = Data([ord(c) for c in comp_data])
         self.pozyx.sendData(self.destination, data)
                 
@@ -314,26 +324,22 @@ class Communicate(object):
         
         odom_data_pub = Odometry()
         
-        odom_data_pub.pose.pose.position.x = y['p']['px']
-        odom_data_pub.pose.pose.position.y = y['p']['py']
-        odom_data_pub.pose.pose.position.z = y['p']['pz']
-        odom_data_pub.pose.pose.orientation.x = y['p']['ox']
-        odom_data_pub.pose.pose.orientation.y = y['p']['oy']
-        odom_data_pub.pose.pose.orientation.z = y['p']['oz']
-        odom_data_pub.pose.pose.orientation.w = y['p']['ow']
+        odom_data_pub.header.frame_id = y['a']
+        odom_data_pub.child_frame_id = y['b']
+        
+        odom_data_pub.pose.pose.position.x = y['c']
+        odom_data_pub.pose.pose.position.y = y['d']
+        odom_data_pub.pose.pose.orientation.z = y['e']
+        odom_data_pub.pose.pose.orientation.w = y['f']
 
-        odom_data_pub.twist.twist.linear.x = y['t']['lx']
-        odom_data_pub.twist.twist.linear.y = y['t']['ly']
-        odom_data_pub.twist.twist.linear.z = y['t']['lz']
-        odom_data_pub.twist.twist.angular.x = y['t']['ax']
-        odom_data_pub.twist.twist.angular.y = y['t']['ay']
-        odom_data_pub.twist.twist.angular.z = y['t']['az']
+        odom_data_pub.twist.twist.linear.x = y['g']
+        odom_data_pub.twist.twist.angular.z = y['h']
         
         return odom_data_pub
 
 def main():
-    distance = loc.doRanging()
-        
+    distance = loc.getDistance()
+    
     if distance < loc_dis:
         loc.getDistances()
         loc.triangulationLocal()
@@ -380,6 +386,7 @@ if __name__ == "__main__":
     
     alpha = float(rospy.get_param('~alpha', 0.1))
     noise = float(rospy.get_param('~noise', 1))
+    R = float(rospy.get_param('~R', 30))
     
     robot_number = rospy.get_param('~robot_number')
     
@@ -388,6 +395,7 @@ if __name__ == "__main__":
     right_tag_pos_x = float(rospy.get_param('~right_tag_pos_x'))
     right_tag_pos_y = float(rospy.get_param('~right_tag_pos_y'))
     link_to_robot = str(rospy.get_param('~link', 'base_footprint'))
+    do_ranging = rospy.get_param('~do_ranging', 1)
     
     loc_dis = float(rospy.get_param('~loc_dis', 6))
     com_dis = float(rospy.get_param('~com_dis', 4))
@@ -409,14 +417,13 @@ if __name__ == "__main__":
     stream = open(os.path.dirname(os.path.realpath(__file__)) + "/robot_list.yaml", "r")
     robot_list = yaml.load(stream)
     
-    destination = rospy.get_param('~destination', 0x6e2f)
     tx_topic = str(rospy.get_param('~tx_topic', 'uwb_server_tx'))
     rx_topic = str(rospy.get_param('~rx_topic', 'uwb_server_rx'))
     
     pub = rospy.Publisher(rx_topic, Odometry, queue_size = 10)
     
-    loc = Localize(pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, link_to_robot)
-    com = Communicate(pozyx, destination)
+    loc = Localize(pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging)
+    com = Communicate(pozyx)
     trf = Transform(link_to_robot)
     
     rospy.Subscriber(tx_topic, Odometry, com.odomData)

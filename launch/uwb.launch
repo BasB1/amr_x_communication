@@ -10,6 +10,7 @@
     <param name="robot_number" value="2"/>
     <param name="serial_port" value="/dev/ttyACM0"/>
     <param name="frequency" value="10"/>
+    <param name="do_ranging" value="1"/>
 
     <param name="left_tag_pos_x" value="$(arg left_tag_x)"/>
     <param name="left_tag_pos_y" value="$(arg left_tag_y)"/>
@@ -17,18 +18,18 @@
     <param name="right_tag_pos_y" value="$(arg right_tag_y)"/>
     
     <param name="loc_dis" value="3"/> <!--Distance to start localization-->
-    <param name="com_dis" value="2"/> <!--Distance to start communication-->
+    <param name="com_dis" value="1"/> <!--Distance to start communication-->
     <param name="link" value="$(arg link)"/> 
     
     <!--Filter settings for localization-->
-    <param name="alpha" value="1"/>
+    <param name="R" value="10"/>
+    <param name="alpha" value="1.1"/>
     <param name="noise" value="0.0001"/>
-    <param name="protocol" value="fast"/>
+    <param name="protocol" value="precise"/>
 
     <!--Communication settings-->
     <param name="tx_topic" value="/odom_throttled"/>
     <param name="rx_topic" value="uwb_rx"/>
-    <param name="destination" value="26393" type="int"/>
   </node>
 
   <node name="left_tag_link" pkg="tf" type="static_transform_publisher" args="$(arg left_tag_x) $(arg left_tag_y) 0 0 0 0 $(arg link) left_tag_link 10"/>
