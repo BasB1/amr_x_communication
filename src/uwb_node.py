@@ -326,18 +326,21 @@ class Communicate(object):
 
 def main():
     distance = loc.doRanging()
-    
-    if distance > loc_dis:
+    rospy.loginfo(distance)
+    if distance < loc_dis:
         stat = 'loc'
-    elif distance >= com_dis:
+    elif distance <= com_dis:
         stat = 'com'
-    elif distance <= loc_dis + 1:
+    elif distance >= loc_dis + 1:
         stat = 'none'
     
     if stat == 'loc':
         loc.getDistances()
         loc.triangulationLocal()
-        trf.getTransformData()
+        try:
+            trf.getTransformData()
+        except Exception as e:
+            pass
     elif stat == 'com':
         trf.calcZero()
         try:
