@@ -9,7 +9,7 @@
   <node pkg="amr_x_communication" type="uwb_node.py" name="localization_node" output="screen">
     <param name="robot_number" value="2"/>
     <param name="serial_port" value="/dev/ttyACM0"/>
-    <param name="frequency" value="20"/>
+    <param name="frequency" value="10"/>
 
     <param name="left_tag_pos_x" value="$(arg left_tag_x)"/>
     <param name="left_tag_pos_y" value="$(arg left_tag_y)"/>

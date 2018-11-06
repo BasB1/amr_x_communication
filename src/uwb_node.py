@@ -220,7 +220,8 @@ class Localize(object):
             ROBOT_w_1 = math.degrees(ROBOT_w_1)
         ROBOT_w_1 = math.radians(ROBOT_w_1) * -1
         
-        self.f5.update(ROBOT_w_1)
+#        self.f5.update(ROBOT_w_1)
+#        ROBOT_w_1 = self.f5.x[0]
         
         ROBOT_w_2 = math.tan((LEFT_x_2 - RIGHT_x_2) / (LEFT_y_2 - RIGHT_y_2))
         if LEFT_y_2 < RIGHT_y_2:
@@ -328,7 +329,13 @@ class Communicate(object):
 
 def main():
     distance = loc.doRanging()
-
+    
+    while True:
+        mask = Data([0])
+        pozyx.getInterruptStatus(mask)
+        if mask[0] == 0:
+            break
+        
     if distance < loc_dis:
         loc.getDistances()
         loc.triangulationLocal()
