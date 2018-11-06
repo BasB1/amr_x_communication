@@ -38,14 +38,14 @@ class Transform():
             pass
         
     def publishCF(self):
-        self.br.sendTransform((self._x, self._y, 0),
+        self.broadcaster.sendTransform((self._x, self._y, 0),
                      tf.transformations.quaternion_from_euler(0, 0, self._z),
                      rospy.Time.now(),
                      "child_frame",
                      "world")
     
-    def piblishOF(self, x, y, z):
-        self.br.sendTransform((x, y, 0),
+    def publishOF(self, x, y, z):
+        self.broadcaster.sendTransform((x, y, 0),
                      tf.transformations.quaternion_from_euler(0, 0, z),
                      rospy.Time.now(),
                      "base_footprint",
@@ -344,12 +344,13 @@ def main():
             odom_data = com.rxData()
             pub.publish(odom_data)
         except Exception as e:
+            odom_data = Odometry()
             pass
         com.txData()
         x = odom_data.pose.pose.position.x
         y = odom_data.pose.pose.position.y
         z = odom_data.pose.pose.position.z
-        trf.publishCF(x, y, z)
+        trf.publishOF(x, y, z)
     elif stat == 'none':
         pass
         
