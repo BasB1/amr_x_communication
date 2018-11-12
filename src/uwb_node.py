@@ -161,10 +161,10 @@ class Localize(object):
         self.f4.predict()
         
         if self.do_ranging == 0:
-            self.pozyx.getDeviceRangeInfo(self.C, self.distance_1)
-            self.pozyx.getDeviceRangeInfo(self.D, self.distance_3)
-            self.pozyx.getDeviceRangeInfo(self.C, self.distance_2, self.B)        
-            self.pozyx.getDeviceRangeInfo(self.D, self.distance_4, self.B)
+            self.pozyx.getDeviceRangeInfo(self.A, self.distance_1, self.C)
+            self.pozyx.getDeviceRangeInfo(self.B, self.distance_3, self.C)
+            self.pozyx.getDeviceRangeInfo(self.A, self.distance_2, self.D)        
+            self.pozyx.getDeviceRangeInfo(self.B, self.distance_4, self.D)
         elif self.do_ranging == 1:
             self.pozyx.doRanging(self.C, self.distance_1)
             self.pozyx.doRanging(self.D, self.distance_3)

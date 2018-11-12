@@ -18,7 +18,7 @@
       <param name="robot_number" value="$(arg robot_number)"/>
       <param name="serial_port" value="/dev/ttyACM0"/>
       <param name="frequency" value="10"/>
-      <param name="do_ranging" value="1"/>
+      <param name="do_ranging" value="0"/>
 
       <param name="left_tag_pos_x" value="$(arg left_tag_x)"/>
       <param name="left_tag_pos_y" value="$(arg left_tag_y)"/>
