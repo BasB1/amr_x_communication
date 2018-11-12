@@ -13,14 +13,14 @@ from pypozyx import Data
 import zlib
 
 class Transform(object):
-    def __init__(self, link_to_robot):
+    def __init__(self, link_to_robot, tf_prefix):
          self.broadcaster = tf.TransformBroadcaster()
          self.listener = tf.TransformListener()
          self.link_to_robot = link_to_robot
          self.odom_data = Odometry()
          
     def getTransformData(self):
-        (self.trans, self.rot) = self.listener.lookupTransform('/robot_pos_1', '/world', rospy.Time(0))
+        (self.trans, self.rot) = self.listener.lookupTransform(tf_prefix + '/robot_pos_1', tf_prefix + '/odom', rospy.Time(0))
       
     def odomData(self, data):
         self.odom_data = data
@@ -46,14 +46,14 @@ class Transform(object):
         self.broadcaster.sendTransform((self._x, self._y, 0),
                      tf.transformations.quaternion_from_euler(0, 0, self._z),
                      rospy.Time.now(),
-                     "child_frame",
+                     tf_prefix + "zero",
                      self.link_to_robot)
     
     def publishOF(self, x, y, z):
         self.broadcaster.sendTransform((x, y, 0),
                      tf.transformations.quaternion_from_euler(0, 0, z),
                      rospy.Time.now(),
-                     "base_footprint",
+                     tf_prefix + "external_odom",
                      self.link_to_robot)
 
 class Localize(object):
@@ -141,11 +141,13 @@ class Localize(object):
             self.f1.predict()
             self.pozyx.rangingWithoutCheck(self.C, self.distance_1)
             self.f1.update(self.distance_1[1])
+            print(self.f1.x[0] * 0.001)
             return self.f1.x[0] * 0.001
         elif self.do_ranging == 1:
             self.f1.predict()
             self.pozyx.doRanging(self.C, self.distance_1)
             self.f1.update(self.distance_1[1])
+            print(self.f1.x[0] * 0.001)
             return self.f1.x[0] * 0.001
               
     def getDistances(self):
@@ -184,8 +186,6 @@ class Localize(object):
         self.distance_prev_2 = self.distance_2[1]
         self.distance_prev_3 = self.distance_3[1]
         self.distance_prev_4 = self.distance_4[1]
-        
-        print(self.distance_1[1], self.distance_2[1], self.distance_3[1], self.distance_4[1])
                 
         self.f1.update(self.distance_1[1])
         self.f2.update(self.distance_2[1])
@@ -309,7 +309,6 @@ class Communicate(object):
             }
         s = json.dumps(x)
         comp_data = zlib.compress(str(s))
-        rospy.loginfo(len(comp_data))
         data = Data([ord(c) for c in comp_data])
         self.pozyx.sendData(self.destination, data)
                 
@@ -342,17 +341,15 @@ class Communicate(object):
 
 def main():
     distance = loc.getDistance()
-    
-    if distance < loc_dis:
+    calc_zero = ""
+    if distance < loc_dis and distance > com_dis:
         loc.getDistances()
         loc.triangulationLocal()
-        
+        calc_zero = True
         try:
             trf.getTransformData()
         except Exception as e:
             pass
-        calc_zero = True
-        
     elif distance <= com_dis:
         if calc_zero == True:
             trf.calcZero()
@@ -369,18 +366,17 @@ def main():
         
         com.txData()
         
-        x = odom_data.pose.pose.position.x
-        y = odom_data.pose.pose.position.y
-        z = odom_data.pose.pose.position.z
-        trf.publishCF()
-        trf.publishOF(x, y, z)
-        
+        #x = odom_data.pose.pose.position.x
+        #y = odom_data.pose.pose.position.y
+        #z = odom_data.pose.pose.position.z
+        #trf.publishCF()
+        #trf.publishOF(x, y, z)  
     elif distance >= loc_dis + 1:
         pass
     
 if __name__ == "__main__":
     rospy.init_node('uwb_node')
-    
+    rospy.loginfo("Intializing UWB")
     serial_port = str(rospy.get_param('~serial_port', pzx.get_first_pozyx_serial_port()))
     frequency = float(rospy.get_param('~frequency', 10))
     rate = rospy.Rate(frequency)
@@ -429,10 +425,16 @@ if __name__ == "__main__":
     
     loc = Localize(pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging, tf_prefix)
     com = Communicate(pozyx)
-    trf = Transform(link_to_robot)
+    trf = Transform(link_to_robot, tf_prefix)
     
     rospy.Subscriber(tx_topic, Odometry, com.odomData)
     rospy.Subscriber(rx_topic, Odometry, trf.odomData)
+    
+    for i in range(20):
+        distance = loc.getDistance()
+        rate.sleep()
+    
+    rospy.loginfo("Done intializing UWB")
     
     while not rospy.is_shutdown():
 #        mask_rem = pzx.SingleRegister()
