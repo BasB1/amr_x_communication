@@ -139,7 +139,7 @@ class Localize(object):
     def getDistance(self):
         if self.do_ranging == 0:
             self.f1.predict()
-            self.pozyx.getDeviceRangeInfo(self.C, self.distance_1)
+            self.pozyx.rangingWithoutCheck(self.C, self.distance_1)
             self.f1.update(self.distance_1[1])
             return self.f1.x[0] * 0.001
         elif self.do_ranging == 1:
@@ -161,10 +161,10 @@ class Localize(object):
         self.f4.predict()
         
         if self.do_ranging == 0:
-            self.pozyx.getDeviceRangeInfo(self.A, self.distance_1, self.C)
-            self.pozyx.getDeviceRangeInfo(self.B, self.distance_3, self.C)
-            self.pozyx.getDeviceRangeInfo(self.A, self.distance_2, self.D)        
-            self.pozyx.getDeviceRangeInfo(self.B, self.distance_4, self.D)
+            self.pozyx.rangingWithoutCheck(self.C, self.distance_1)
+            self.pozyx.rangingWithoutCheck(self.D, self.distance_3)
+            self.pozyx.rangingWithoutCheck(self.C, self.distance_2, self.B)        
+            self.pozyx.rangingWithoutCheck(self.D, self.distance_4, self.B)   
         elif self.do_ranging == 1:
             self.pozyx.doRanging(self.C, self.distance_1)
             self.pozyx.doRanging(self.D, self.distance_3)
