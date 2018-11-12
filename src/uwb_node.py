@@ -57,13 +57,14 @@ class Transform(object):
                      self.link_to_robot)
 
 class Localize(object):
-    def __init__(self, pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging):
+    def __init__(self, pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging, tf_prefix):
         self.pozyx = pozyx
         self.ranging_protocol = ranging_protocol
         self.tag_pos = tag_pos
         self.robot_number = robot_number
         self.link_to_robot = link_to_robot
         self.do_ranging = do_ranging
+        self.tf_prefix = tf_prefix
         
         self.distance_1 = pzx.DeviceRange()
         self.distance_2 = pzx.DeviceRange()
@@ -250,32 +251,32 @@ class Localize(object):
         self.br.sendTransform((LEFT_x_1, LEFT_y_1, 0),
                      tf.transformations.quaternion_from_euler(0, 0, 0),
                      rospy.Time.now(),
-                     "left_tag_1",
+                     self.tf_prefix + "/left_tag_1",
                      self.link_to_robot)
         self.br.sendTransform((LEFT_x_2, LEFT_y_2, 0),
                      tf.transformations.quaternion_from_euler(0, 0, 0),
                      rospy.Time.now(),
-                     "left_tag_2",
+                     self.tf_prefix + "/left_tag_2",
                      self.link_to_robot)
         self.br.sendTransform((RIGHT_x_1, RIGHT_y_1, 0),
                      tf.transformations.quaternion_from_euler(0, 0, 0),
                      rospy.Time.now(),
-                     "right_tag_1",
+                     self.tf_prefix + "/right_tag_1",
                      self.link_to_robot)
         self.br.sendTransform((RIGHT_x_2, RIGHT_y_2, 0),
                      tf.transformations.quaternion_from_euler(0, 0, 0),
                      rospy.Time.now(),
-                     "right_tag_2",
+                     self.tf_prefix + "/right_tag_2",
                      self.link_to_robot)
         self.br.sendTransform((ROBOT_x_1, ROBOT_y_1, 0),
                      tf.transformations.quaternion_from_euler(0, 0, ROBOT_w_1),
                      rospy.Time.now(),
-                     "robot_pos_1",
+                     self.tf_prefix + "/robot_pos_1",
                      self.link_to_robot)
         self.br.sendTransform((ROBOT_x_2, ROBOT_y_2, 0),
                      tf.transformations.quaternion_from_euler(0, 0, ROBOT_w_2),
                      rospy.Time.now(),
-                     "robot_pos_2",
+                     self.tf_prefix + "/robot_pos_2",
                      self.link_to_robot)
 
 class Communicate(object):
@@ -397,6 +398,8 @@ if __name__ == "__main__":
     link_to_robot = str(rospy.get_param('~link', 'base_footprint'))
     do_ranging = rospy.get_param('~do_ranging', 1)
     
+    tf_prefix = str(rospy.get_param('~tf_prefix', 'base_footprint'))
+    
     loc_dis = float(rospy.get_param('~loc_dis', 6))
     com_dis = float(rospy.get_param('~com_dis', 4))
     
@@ -422,7 +425,7 @@ if __name__ == "__main__":
     
     pub = rospy.Publisher(rx_topic, Odometry, queue_size = 10)
     
-    loc = Localize(pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging)
+    loc = Localize(pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging, tf_prefix)
     com = Communicate(pozyx)
     trf = Transform(link_to_robot)
     
