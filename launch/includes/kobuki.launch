@@ -4,11 +4,11 @@
   <arg name="init_robot_y"/>
   <arg name="robot_name"/>
 
-  <param name="robot_description" command="$(find xacro)/xacro.py $(find amr_x_communication)/turtlebot_description/robots/kobuki_hexagons_kinect.urdf.xacro" />
+  <param name="robot_description" command="$(find xacro)/xacro.py $(find amr_x_communication)/turtlebot_description/robots/kobuki_hexagons_kinect.urdf.xacro prefix:=$(arg robot_name)" />
   
   <!-- Gazebo model spawner -->
   <node name="spawn_turtlebot_model" pkg="gazebo_ros" type="spawn_model"
-        args="-x $(arg init_robot_x) -y $(arg init_robot_y) -z 0 -unpause -urdf -param robot_description -model $(arg robot_name)"/>
+        args="-x $(arg init_robot_x) -y $(arg init_robot_y) -z 0 -unpause -urdf -param robot_description -model $(arg robot_name) "/>
   
   <!-- Velocity muxer -->
   <node pkg="nodelet" type="nodelet" name="mobile_base_nodelet_manager" args="manager"/>

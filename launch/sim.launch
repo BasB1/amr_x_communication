@@ -1,29 +1,49 @@
 <?xml version="1.0" encoding="UTF-8"?> 
 <launch>
   <group ns="turtle_1">
-    <param name="tf_prefix" value="turtle_1_tf" />
+    <arg name="robot_name" value="turtle_1"/>
+    <arg name="map_x" value="10.0"/>
+    <arg name="map_y" value="10.0"/>
+    <param name="tf_prefix" value="$(arg robot_name)_tf"/>
+
     <include file="$(find amr_x_communication)/launch/includes/one_turtle.launch">
-      <arg name="robot_name" value="turtle_1"/>
-      <arg name="robot_tf_prefix" value="turtle_1_tf"/>
+      <arg name="robot_name" value="$(arg robot_name)"/>
       <arg name="init_x" value="6"/>
       <arg name="init_y" value="-12"/>
     </include>
+    
+    <include file="$(find amr_x_communication)/launch/includes/cartographer.launch">
+      <arg name="robot_name" value="$(arg robot_name)"/>
+    </include>
+
+    <!--include file="$(find amr_x_communication)/launch/includes/gmapping.launch">
+      <arg name="map_x" value="$(arg map_x)"/>
+      <arg name="map_y" value="$(arg map_y)"/>
+      <arg name="robot_name" value="$(arg robot_name)"/>
+      <arg name="scan_topic"  default="scan"/>
+      <arg name="base_frame"  default="$(arg robot_name)_tf/base_footprint"/>
+      <arg name="odom_frame"  default="$(arg robot_name)_tf/odom"/>
+    </include>
+
+    <node pkg="tf" type="static_transform_publisher" name="$(arg robot_name)_broadcaster" args="0 0 0 0 0 0 $(arg robot_name)_tf/world map 100" /-->
   </group>
 
-  <group ns="turtle_2">
-    <param name="tf_prefix" value="turtle_2_tf" />
+  <!--group ns="turtle_2">
+    <arg name="robot_name" value="turtle_2"/>
+    <arg name="map_x" value="10.0"/>
+    <arg name="map_y" value="10.0"/>
+    <param name="tf_prefix" value="$(arg robot_name)_tf"/>
+
     <include file="$(find amr_x_communication)/launch/includes/one_turtle.launch">
-      <arg name="robot_tf_prefix" value="turtle_2_tf"/>
-      <arg name="robot_name" value="turtle_2"/>
+      <arg name="robot_name" value="$(arg robot_name)"/>
       <arg name="init_x" value="6"/>
       <arg name="init_y" value="-11"/>
     </include>
   </group>
 
   <group ns="turtle_3">
-    <param name="tf_prefix" value="turtle_3_tf" />
+    <param name="tf_prefix" value="turtle_3_tf"/>
     <include file="$(find amr_x_communication)/launch/includes/one_turtle.launch">
-      <arg name="robot_tf_prefix" value="turtle_3_tf"/>
       <arg name="robot_name" value="turtle_3"/>
       <arg name="init_x" value="6"/>
       <arg name="init_y" value="-10"/>
@@ -31,14 +51,13 @@
   </group>
 
   <group ns="turtle_4">
-    <param name="tf_prefix" value="turtle_4_tf" />
+    <param name="tf_prefix" value="turtle_4_tf"/>
     <include file="$(find amr_x_communication)/launch/includes/one_turtle.launch">
-      <arg name="robot_tf_prefix" value="turtle_4_tf"/>
       <arg name="robot_name" value="turtle_4"/>
       <arg name="init_x" value="6"/>
       <arg name="init_y" value="-9"/>
     </include>
-  </group>
+  </group-->
 
   <include file="$(find amr_x_communication)/launch/includes/turtlebot_world.launch"/>
 </launch>
