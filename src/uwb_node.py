@@ -171,19 +171,21 @@ class Localize(object):
             self.pozyx.doRanging(self.C, self.distance_2, self.B)        
             self.pozyx.doRanging(self.D, self.distance_4, self.B)
         
-        if self.distance_1[1] == 0 :
+        if self.distance_1[1] == 0 or self.distance_1[1] > 1000000:
             self.distance_1[1] = self.distance_prev_1
-        if self.distance_2[1] == 0 :
+        if self.distance_2[1] == 0 or self.distance_2[1] > 1000000:
             self.distance_2[1] = self.distance_prev_2
-        if self.distance_3[1] == 0 :
+        if self.distance_3[1] == 0 or self.distance_3[1] > 1000000:
             self.distance_3[1] = self.distance_prev_3
-        if self.distance_4[1] == 0 :
+        if self.distance_4[1] == 0 or self.distance_4[1] > 1000000:
             self.distance_4[1] = self.distance_prev_4
         
         self.distance_prev_1 = self.distance_1[1]
         self.distance_prev_2 = self.distance_2[1]
         self.distance_prev_3 = self.distance_3[1]
         self.distance_prev_4 = self.distance_4[1]
+        
+        print(self.distance_1[1], self.distance_2[1], self.distance_3[1], self.distance_4[1])
                 
         self.f1.update(self.distance_1[1])
         self.f2.update(self.distance_2[1])
