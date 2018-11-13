@@ -21,7 +21,7 @@ class Transform(object):
          self.tf_prefix = tf_prefix
          
     def getTransformData(self):
-        (self.trans, self.rot) = self.listener.lookupTransform(self.tf_prefix + '/robot_pos_1', self.tf_prefix + '/odom', rospy.Time(0))
+        (self.trans, self.rot) = self.listener.lookupTransform(self.tf_prefix + '/odom', self.tf_prefix + '/robot_pos_1', rospy.Time(0))
       
     def odomData(self):
         self.odom_data = com.returnRxOdom()
@@ -29,22 +29,23 @@ class Transform(object):
     def calcZero(self):
         self._x = self.trans[0] + (self.odom_data.pose.pose.position.x)
         self._y = self.trans[1] + (self.odom_data.pose.pose.position.y)
-
-        quaternion = (
-            self.odom_data.pose.pose.orientation.x,
-            self.odom_data.pose.pose.orientation.y,
-            self.odom_data.pose.pose.orientation.z,
-            self.odom_data.pose.pose.orientation.w)
-        euler = tf.transformations.euler_from_quaternion(quaternion)
+        quat = tf.transformations.quaternion_from_euler(0, 0, self.rot[2])
         
-        self._z = self.rot[2] + euler[2]
+        self._quaternion = (
+            0,
+            0,
+            self.odom_data.pose.pose.orientation.z + quat[2],
+            self.odom_data.pose.pose.orientation.w + quat[3])
         
     def publishCF(self):
         self.broadcaster.sendTransform((self._x, self._y, 0),
-                     tf.transformations.quaternion_from_euler(0, 0, self._z),
+                     (0,
+                      0,
+                      self._quaternion[2],
+                      self._quaternion[3]),
                      rospy.Time.now(),
-                     self.tf_prefix + "/zero",
-                     self.link_to_robot)
+                     self.tf_prefix + '/zero',
+                     self.tf_prefix + '/odom')
     
     def publishOF(self):
         self.broadcaster.sendTransform((self.odom_data.pose.pose.orientation.x, self.odom_data.pose.pose.orientation.y, 0),
@@ -316,7 +317,7 @@ class Communicate(object):
         data = Data([0]*self.rx_info[1])
         self.pozyx.readRXBufferData(data)   
         message = str(self.rx_info[1]) 
-        print("length", len(message))
+        print("length", self.rx_info[1])
         for i in data:
             message = message + chr(i)
         
@@ -330,7 +331,6 @@ class Communicate(object):
             odom_data_pub.pose.pose.position.y = y['b']
             odom_data_pub.pose.pose.orientation.z = y['c']
             odom_data_pub.pose.pose.orientation.w = y['d']
-    
             odom_data_pub.twist.twist.linear.x = y['e']
             odom_data_pub.twist.twist.angular.z = y['f']
             
@@ -344,7 +344,6 @@ class Communicate(object):
 def main():
     distance = loc.getDistance()
     if distance < loc_dis and distance > com_dis:
-        rospy.set_param('~op_state', 0)
         loc.getDistances()
         loc.triangulationLocal()
         rospy.set_param('~zero_state', 1)
@@ -355,8 +354,7 @@ def main():
             pass
         
     elif distance <= com_dis:
-        rospy.set_param('~op_state', 1)
-        com.txData()    
+        #com.txData()    
         com.rxData()
         trf.odomData()
         if rospy.get_param('~zero_state') == 1:
@@ -429,7 +427,7 @@ if __name__ == "__main__":
     
     rospy.Subscriber(tx_topic, Odometry, com.odomData)
     
-    for i in range(20):
+    for i in range(25):
         distance = loc.getDistance()
         rate.sleep()
     

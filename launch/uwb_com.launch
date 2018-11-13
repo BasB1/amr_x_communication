@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<launch>
+  <arg name="robot_number" value="2"/>
+  <arg name="robot_name" default="turtle_$(arg robot_number)" />
+  <group ns="$(arg robot_name)">
+    <node pkg="uwb_com" type="uwb_node.py" name="uwb_node" output="screen">
+      <param name="rate" value="10"/> 		<!--Rate at which the node will run-->
+      <param name="destination" value="26492"/> 	<!--Destination given in decimal-->
+      <param name="tx_topic" value="/odom"/>	<!--Sending topic-->
+      <param name="rx_topic" value="uwb_rx"/>	<!--Receiving topic-->
+    </node>
+  </group>
+</launch>
