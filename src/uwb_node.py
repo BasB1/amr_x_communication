@@ -25,6 +25,10 @@ class Transform(object):
       
     def odomData(self):
         self.odom_data = com.returnRxOdom()
+    
+    def checkDistance(self):
+        (trans, rot) = self.listener.lookupTransform(self.tf_prefix + '/odom', self.tf_prefix + '/external_odom', rospy.Time(0))
+        return (trans[0] * trans[0] + trans[1] * trans[1]) ** 0.5
         
     def calcZero(self):
         self._x = self.trans[0] + (self.odom_data.pose.pose.position.x)
@@ -321,29 +325,31 @@ class Communicate(object):
         for i in data:
             message = message + chr(i)
         
-        try:
-            s = zlib.decompress(message)
-            y = json.loads(s)
+        s = zlib.decompress(message)
+        y = json.loads(s)
 
-            odom_data_pub = Odometry()
-            
-            odom_data_pub.pose.pose.position.x = y['a']
-            odom_data_pub.pose.pose.position.y = y['b']
-            odom_data_pub.pose.pose.orientation.z = y['c']
-            odom_data_pub.pose.pose.orientation.w = y['d']
-            odom_data_pub.twist.twist.linear.x = y['e']
-            odom_data_pub.twist.twist.angular.z = y['f']
-            
-            self.odom_data_rx = odom_data_pub
-        except Exception as e:
-            rospy.logwarn(e)
+        odom_data_pub = Odometry()
+        
+        odom_data_pub.pose.pose.position.x = y['a']
+        odom_data_pub.pose.pose.position.y = y['b']
+        odom_data_pub.pose.pose.orientation.z = y['c']
+        odom_data_pub.pose.pose.orientation.w = y['d']
+        odom_data_pub.twist.twist.linear.x = y['e']
+        odom_data_pub.twist.twist.angular.z = y['f']
+        
+        self.odom_data_rx = odom_data_pub
     
     def returnRxOdom(self):
         return self.odom_data_rx
         
 def main():
-    distance = loc.getDistance()
+    if rospy.get_param('~do_ranging') == 1:
+        distance = loc.getDistance()
+    elif rospy.get_param('~do_ranging') == 0:
+        distance = trf.checkDistance()
+               
     if distance < loc_dis and distance > com_dis:
+        rospy.set_param('~do_ranging', 1)
         loc.getDistances()
         loc.triangulationLocal()
         rospy.set_param('~zero_state', 1)
@@ -352,13 +358,12 @@ def main():
         except Exception as e:
             rospy.logwarn(e)
             pass
-        
     elif distance <= com_dis:
-        #com.txData()    
+        rospy.set_param('~do_ranging', 0)
+        com.txData()    
         com.rxData()
         trf.odomData()
         if rospy.get_param('~zero_state') == 1:
-            rospy.logerr("Calcing zero")
             trf.calcZero()
             rospy.set_param('~zero_state', 0)
         else:
@@ -368,7 +373,8 @@ def main():
         trf.publishOF() 
         
         pub.publish(com.returnRxOdom())
-        
+    elif distance < loc_dis and distance > com_dis and rospy.get_param('~do_ranging') == 0:
+        rospy.set_param('~do_ranging', 1)
     elif distance >= loc_dis + 1:
         pass
     

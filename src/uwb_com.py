@@ -49,13 +49,13 @@ class Communicate(object):
         
         odom_data_pub = Odometry()
 
-        odom_data_pub.pose.pose.position.x = y['c']
-        odom_data_pub.pose.pose.position.y = y['d']
-        odom_data_pub.pose.pose.orientation.z = y['e']
-        odom_data_pub.pose.pose.orientation.w = y['f']
+        odom_data_pub.pose.pose.position.x = y['a']
+        odom_data_pub.pose.pose.position.y = y['b']
+        odom_data_pub.pose.pose.orientation.z = y['c']
+        odom_data_pub.pose.pose.orientation.w = y['d']
 
-        odom_data_pub.twist.twist.linear.x = y['g']
-        odom_data_pub.twist.twist.angular.z = y['h']
+        odom_data_pub.twist.twist.linear.x = y['e']
+        odom_data_pub.twist.twist.angular.z = y['f']
         
         return odom_data_pub
 
