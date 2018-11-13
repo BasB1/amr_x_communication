@@ -18,43 +18,43 @@ class Transform(object):
          self.listener = tf.TransformListener()
          self.link_to_robot = link_to_robot
          self.odom_data = Odometry()
+         self.tf_prefix = tf_prefix
          
     def getTransformData(self):
-        (self.trans, self.rot) = self.listener.lookupTransform(tf_prefix + '/robot_pos_1', tf_prefix + '/odom', rospy.Time(0))
+        (self.trans, self.rot) = self.listener.lookupTransform(self.tf_prefix + '/robot_pos_1', self.tf_prefix + '/odom', rospy.Time(0))
       
-    def odomData(self, data):
-        self.odom_data = data
+    def odomData(self):
+        self.odom_data = com.returnRxOdom()
         
     def calcZero(self):
-        try:
-            self._x = self.trans[0] + (self.odom_data.pose.pose.position.x)
-            self._y = self.trans[1] + (self.odom_data.pose.pose.position.y)
+        self._x = self.trans[0] + (self.odom_data.pose.pose.position.x)
+        self._y = self.trans[1] + (self.odom_data.pose.pose.position.y)
 
-            quaternion = (
-                self.odom_data.pose.pose.orientation.x,
-                self.odom_data.pose.pose.orientation.y,
-                self.odom_data.pose.pose.orientation.z,
-                self.odom_data.pose.pose.orientation.w)
-            euler = tf.transformations.euler_from_quaternion(quaternion)
-            
-            self._z = euler[2] + self.rot[2]  + math.pi
-            rospy.sleep(0.1 / self.itter)
-        except:
-            pass
+        quaternion = (
+            self.odom_data.pose.pose.orientation.x,
+            self.odom_data.pose.pose.orientation.y,
+            self.odom_data.pose.pose.orientation.z,
+            self.odom_data.pose.pose.orientation.w)
+        euler = tf.transformations.euler_from_quaternion(quaternion)
+        
+        self._z = self.rot[2] + euler[2]
         
     def publishCF(self):
         self.broadcaster.sendTransform((self._x, self._y, 0),
                      tf.transformations.quaternion_from_euler(0, 0, self._z),
                      rospy.Time.now(),
-                     tf_prefix + "zero",
+                     self.tf_prefix + "/zero",
                      self.link_to_robot)
     
-    def publishOF(self, x, y, z):
-        self.broadcaster.sendTransform((x, y, 0),
-                     tf.transformations.quaternion_from_euler(0, 0, z),
+    def publishOF(self):
+        self.broadcaster.sendTransform((self.odom_data.pose.pose.orientation.x, self.odom_data.pose.pose.orientation.y, 0),
+                     (self.odom_data.pose.pose.orientation.x,
+                      self.odom_data.pose.pose.orientation.y,
+                      self.odom_data.pose.pose.orientation.z,
+                      self.odom_data.pose.pose.orientation.w),
                      rospy.Time.now(),
-                     tf_prefix + "external_odom",
-                     self.link_to_robot)
+                     self.tf_prefix + "/external_odom",
+                     self.tf_prefix + "/zero")
 
 class Localize(object):
     def __init__(self, pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging, tf_prefix):
@@ -290,6 +290,7 @@ class Communicate(object):
         self.pozyx = pozyx
         self.read_data = ""
         self.odom_data = Odometry()
+        self.odom_data_rx = Odometry()
         self.odom_data_prev = Odometry()
         self.rx_info = pzx.RXInfo()
     
@@ -298,14 +299,12 @@ class Communicate(object):
         
     def txData(self):
         x = {
-                "a": self.odom_data.header.frame_id, #frame id
-                "b": self.odom_data.child_frame_id, #child frame id
-                "c": round(self.odom_data.pose.pose.position.x, 4),
-                "d": round(self.odom_data.pose.pose.position.y, 4),
-                "e": round(self.odom_data.pose.pose.orientation.z, 4), 
-                "f": round(self.odom_data.pose.pose.orientation.w, 4),
-                "g": round(self.odom_data.twist.twist.linear.x, 4),
-                "h": round(self.odom_data.twist.twist.angular.z, 4)
+                "a": round(self.odom_data.pose.pose.position.x, 4),
+                "b": round(self.odom_data.pose.pose.position.y, 4),
+                "c": round(self.odom_data.pose.pose.orientation.z, 4), 
+                "d": round(self.odom_data.pose.pose.orientation.w, 4),
+                "e": round(self.odom_data.twist.twist.linear.x, 4),
+                "f": round(self.odom_data.twist.twist.angular.z, 4)
             }
         s = json.dumps(x)
         comp_data = zlib.compress(str(s))
@@ -316,61 +315,62 @@ class Communicate(object):
         self.pozyx.getRxInfo(self.rx_info)
         data = Data([0]*self.rx_info[1])
         self.pozyx.readRXBufferData(data)   
-        message = str() 
-        
+        message = str(self.rx_info[1]) 
+        print("length", len(message))
         for i in data:
             message = message + chr(i)
         
-        s = zlib.decompress(message)
-        y = json.loads(s)
-        
-        odom_data_pub = Odometry()
-        
-        odom_data_pub.header.frame_id = y['a']
-        odom_data_pub.child_frame_id = y['b']
-        
-        odom_data_pub.pose.pose.position.x = y['c']
-        odom_data_pub.pose.pose.position.y = y['d']
-        odom_data_pub.pose.pose.orientation.z = y['e']
-        odom_data_pub.pose.pose.orientation.w = y['f']
+        try:
+            s = zlib.decompress(message)
+            y = json.loads(s)
 
-        odom_data_pub.twist.twist.linear.x = y['g']
-        odom_data_pub.twist.twist.angular.z = y['h']
+            odom_data_pub = Odometry()
+            
+            odom_data_pub.pose.pose.position.x = y['a']
+            odom_data_pub.pose.pose.position.y = y['b']
+            odom_data_pub.pose.pose.orientation.z = y['c']
+            odom_data_pub.pose.pose.orientation.w = y['d']
+    
+            odom_data_pub.twist.twist.linear.x = y['e']
+            odom_data_pub.twist.twist.angular.z = y['f']
+            
+            self.odom_data_rx = odom_data_pub
+        except Exception as e:
+            rospy.logwarn(e)
+    
+    def returnRxOdom(self):
+        return self.odom_data_rx
         
-        return odom_data_pub
-
 def main():
     distance = loc.getDistance()
-    calc_zero = ""
     if distance < loc_dis and distance > com_dis:
+        rospy.set_param('~op_state', 0)
         loc.getDistances()
         loc.triangulationLocal()
-        calc_zero = True
+        rospy.set_param('~zero_state', 1)
         try:
             trf.getTransformData()
         except Exception as e:
+            rospy.logwarn(e)
             pass
+        
     elif distance <= com_dis:
-        if calc_zero == True:
+        rospy.set_param('~op_state', 1)
+        com.txData()    
+        com.rxData()
+        trf.odomData()
+        if rospy.get_param('~zero_state') == 1:
+            rospy.logerr("Calcing zero")
             trf.calcZero()
-            calc_zero = False
+            rospy.set_param('~zero_state', 0)
         else:
             pass
+
+        trf.publishCF()
+        trf.publishOF() 
         
-        try:
-            odom_data = com.rxData()
-            pub.publish(odom_data)
-        except Exception as e:
-            odom_data = Odometry()
-            pass
+        pub.publish(com.returnRxOdom())
         
-        com.txData()
-        
-        #x = odom_data.pose.pose.position.x
-        #y = odom_data.pose.pose.position.y
-        #z = odom_data.pose.pose.position.z
-        #trf.publishCF()
-        #trf.publishOF(x, y, z)  
     elif distance >= loc_dis + 1:
         pass
     
@@ -428,18 +428,13 @@ if __name__ == "__main__":
     trf = Transform(link_to_robot, tf_prefix)
     
     rospy.Subscriber(tx_topic, Odometry, com.odomData)
-    rospy.Subscriber(rx_topic, Odometry, trf.odomData)
     
     for i in range(20):
         distance = loc.getDistance()
         rate.sleep()
     
     rospy.loginfo("Done intializing UWB")
-    
+
     while not rospy.is_shutdown():
-#        mask_rem = pzx.SingleRegister()
-#        pozyx.getInterruptStatus(mask_rem, robot_list[2]['left'])
-#        
-#        if mask_rem[0] == 4:
         main()        
         rate.sleep()

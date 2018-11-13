@@ -28,7 +28,7 @@
       <param name="tf_prefix" value="$(arg prefix_tf)"/>
     
       <param name="loc_dis" value="5"/> <!--Distance to start localization-->
-      <param name="com_dis" value="1"/> <!--Distance to start communication-->
+      <param name="com_dis" value="2"/> <!--Distance to start communication-->
       <param name="link" value="$(arg link)"/> 
      
       <!--Filter settings for localization-->
