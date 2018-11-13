@@ -80,7 +80,6 @@ if __name__ == "__main__":
     rate = rospy.Rate(frequency)
         
     pozyx = pzx.PozyxSerial(serial_port)
-    pozyx.setRangingProtocol(ranging_protocol)
     
     destination = rospy.get_param('~destination', 0x6e2f)
     tx_topic = str(rospy.get_param('~tx_topic', 'uwb_server_tx'))
