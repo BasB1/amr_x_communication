@@ -22,14 +22,12 @@ class Communicate(object):
         
     def txData(self):
         x = {
-                "a": self.odom_data.header.frame_id, #frame id
-                "b": self.odom_data.child_frame_id, #child frame id
-                "c": round(self.odom_data.pose.pose.position.x, 4),
-                "d": round(self.odom_data.pose.pose.position.y, 4),
-                "e": round(self.odom_data.pose.pose.orientation.z, 4), 
-                "f": round(self.odom_data.pose.pose.orientation.w, 4),
-                "g": round(self.odom_data.twist.twist.linear.x, 4),
-                "h": round(self.odom_data.twist.twist.angular.z, 4)
+                "a": round(self.odom_data.pose.pose.position.x, 4),
+                "b": round(self.odom_data.pose.pose.position.y, 4),
+                "c": round(self.odom_data.pose.pose.orientation.z, 4), 
+                "d": round(self.odom_data.pose.pose.orientation.w, 4),
+                "e": round(self.odom_data.twist.twist.linear.x, 4),
+                "f": round(self.odom_data.twist.twist.angular.z, 4)
             }
         s = json.dumps(x)
         comp_data = zlib.compress(str(s))
@@ -50,10 +48,7 @@ class Communicate(object):
         y = json.loads(s)
         
         odom_data_pub = Odometry()
-        
-        odom_data_pub.header.frame_id = y['a']
-        odom_data_pub.child_frame_id = y['b']
-        
+
         odom_data_pub.pose.pose.position.x = y['c']
         odom_data_pub.pose.pose.position.y = y['d']
         odom_data_pub.pose.pose.orientation.z = y['e']
