@@ -143,7 +143,7 @@ class Localize(object):
         self.br = tf.TransformBroadcaster()
     
     def getDistance(self):
-        if rospy.get_param('~do_ranging') == 1:
+        if rospy.get_param('~_ranging') == 1:
             if self.do_ranging == 0:
                 self.f1.predict()
                 self.pozyx.rangingWithoutCheck(self.D, self.distance_1)
@@ -154,7 +154,7 @@ class Localize(object):
                 self.pozyx.doRanging(self.D, self.distance_1)
                 self.f1.update(self.distance_1[1])
                 return self.f1.x[0] * 0.001
-        elif rospy.get_param('~do_ranging') == 0:
+        elif rospy.get_param('~_ranging') == 0:
             try:
                 return trf.checkDistance()
             except Exception as e:
@@ -353,10 +353,10 @@ def main():
     distance = loc.getDistance()
         
     rospy.loginfo(distance)
-    rospy.loginfo("Range state: %i, Com state: %i", rospy.get_param('~do_ranging'), rospy.get_param('~odom_rx'))
+    rospy.loginfo("Range state: %i, Com state: %i", rospy.get_param('~_ranging'), rospy.get_param('~odom_rx'))
     
     if distance < loc_dis and distance > com_dis:
-        rospy.set_param('~do_ranging', 1)
+        rospy.set_param('~_ranging', 1)
         loc.getDistances()
         loc.triangulationLocal()
         rospy.set_param('~zero_state', 1)
@@ -366,7 +366,7 @@ def main():
             rospy.logwarn(e)
             pass
     elif distance <= com_dis:
-        rospy.set_param('~do_ranging', 0)
+        rospy.set_param('~_ranging', 0)
         
         try:
             com.txData()
@@ -451,7 +451,7 @@ if __name__ == "__main__":
         rate.sleep()
     
     rospy.loginfo("Done intializing UWB")
-    rospy.set_param('~do_ranging', 1)
+    rospy.set_param('~_ranging', 1)
     rospy.set_param('~odom_rx', 0)
     while not rospy.is_shutdown():
         main()        
