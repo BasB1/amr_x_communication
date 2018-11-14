@@ -446,13 +446,14 @@ if __name__ == "__main__":
     
     rospy.Subscriber(tx_topic, Odometry, com.odomData)
     
+    rospy.set_param('~_ranging', 1)
+    rospy.set_param('~odom_rx', 0)
+    
     for i in range(25):
         distance = loc.getDistance()
         rate.sleep()
-    
     rospy.loginfo("Done intializing UWB")
-    rospy.set_param('~_ranging', 1)
-    rospy.set_param('~odom_rx', 0)
+    
     while not rospy.is_shutdown():
         main()        
         rate.sleep()
