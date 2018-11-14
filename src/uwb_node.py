@@ -313,6 +313,7 @@ class Communicate(object):
             }
         s = json.dumps(x)
         comp_data = zlib.compress(str(s))
+        print(comp_data)
         data = Data([ord(c) for c in comp_data])
         self.pozyx.sendData(self.destination, data)
                 
@@ -365,10 +366,10 @@ def main():
     elif distance <= com_dis:
         rospy.set_param('~do_ranging', 0)
         
-        while True:
+        while not rospy.is_shutdown():
             try:
-                com.rxData()
                 com.txData()
+                com.rxData()
                 break
             except Exception as e:
                 rospy.sleep(0.1)
