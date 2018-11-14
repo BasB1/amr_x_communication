@@ -27,7 +27,7 @@ class Transform(object):
         self.odom_data = com.returnRxOdom()
     
     def checkDistance(self):
-        (trans, rot) = self.listener.lookupTransform(self.tf_prefix + '/odom', self.tf_prefix + '/external_odom', rospy.Time(0))
+        (trans, rot) = self.listener.lookupTransform(self.tf_prefix + '/odom', self.tf_prefix + '/robot_pos_1', rospy.Time(0))
         return (trans[0] * trans[0] + trans[1] * trans[1]) ** 0.5
         
     def calcZero(self):
@@ -324,7 +324,7 @@ class Communicate(object):
         print("length", self.rx_info[1])
         for i in data:
             message = message + chr(i)
-        
+
         s = zlib.decompress(message)
         y = json.loads(s)
 
@@ -346,8 +346,12 @@ def main():
     if rospy.get_param('~do_ranging') == 1:
         distance = loc.getDistance()
     elif rospy.get_param('~do_ranging') == 0:
-        distance = trf.checkDistance()
-               
+        try:
+            distance = trf.checkDistance()
+        except Exception as e:
+            rospy.logwarn(e)
+            pass
+        
     if distance < loc_dis and distance > com_dis:
         rospy.set_param('~do_ranging', 1)
         loc.getDistances()
@@ -360,8 +364,11 @@ def main():
             pass
     elif distance <= com_dis:
         rospy.set_param('~do_ranging', 0)
-        com.txData()    
-        com.rxData()
+        try:
+            com.txData() 
+            com.rxData()
+        except Exception as e:
+            pass
         trf.odomData()
         if rospy.get_param('~zero_state') == 1:
             trf.calcZero()
@@ -438,7 +445,7 @@ if __name__ == "__main__":
         rate.sleep()
     
     rospy.loginfo("Done intializing UWB")
-
+    rospy.set_param('~do_ranging', 1)
     while not rospy.is_shutdown():
         main()        
         rate.sleep()
