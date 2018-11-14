@@ -31,7 +31,6 @@ class Transform(object):
         return (trans[0] * trans[0] + trans[1] * trans[1]) ** 0.5
         
     def calcZero(self):
-        rospy.loginfo(self.odom_data)
         self._x = self.trans[0] + (self.odom_data.pose.pose.position.x)
         self._y = self.trans[1] + (self.odom_data.pose.pose.position.y)
         quat = tf.transformations.quaternion_from_euler(0, 0, self.rot[2])
@@ -143,23 +142,11 @@ class Localize(object):
         self.br = tf.TransformBroadcaster()
     
     def getDistance(self):
-        if rospy.get_param('~_ranging') == 1:
-            if self.do_ranging == 0:
-                self.f1.predict()
-                self.pozyx.rangingWithoutCheck(self.D, self.distance_1)
-                self.f1.update(self.distance_1[1])
-                return self.f1.x[0] * 0.001
-            elif self.do_ranging == 1:
-                self.f1.predict()
-                self.pozyx.doRanging(self.D, self.distance_1)
-                self.f1.update(self.distance_1[1])
-                return self.f1.x[0] * 0.001
-        elif rospy.get_param('~_ranging') == 0:
-            try:
-                return trf.checkDistance()
-            except Exception as e:
-                rospy.logwarn(e)
-                pass
+        try:
+            return trf.checkDistance()
+        except Exception as e:
+            rospy.logwarn(e)
+            pass
         
               
     def getDistances(self):
@@ -202,7 +189,9 @@ class Localize(object):
         self.f1.update(self.distance_1[1])
         self.f2.update(self.distance_2[1])
         self.f3.update(self.distance_3[1])
-        self.f4.update(self.distance_4[1])       
+        self.f4.update(self.distance_4[1])  
+
+        return self.f1.x[0] * 0.001
         
     def triangulationLocal(self):
         r_0 = self.f1.x[0] * 0.001
@@ -350,21 +339,26 @@ class Communicate(object):
         return self.odom_data_rx
         
 def main():
-    distance = loc.getDistance()
+    if rospy.get_param('~_ranging') == 1:
+        distance = loc.getDistances()
+    elif rospy.get_param('~_ranging') == 0:
+        distance = loc.getDistance()
         
     rospy.loginfo(distance)
     rospy.loginfo("Range state: %i, Com state: %i", rospy.get_param('~_ranging'), rospy.get_param('~odom_rx'))
     
     if distance < loc_dis and distance > com_dis:
         rospy.set_param('~_ranging', 1)
-        loc.getDistances()
-        loc.triangulationLocal()
         rospy.set_param('~zero_state', 1)
+        
+        loc.triangulationLocal()
+        
         try:
             trf.getTransformData()
         except Exception as e:
             rospy.logwarn(e)
             pass
+        
     elif distance <= com_dis:
         rospy.set_param('~_ranging', 0)
         
@@ -379,6 +373,7 @@ def main():
         if rospy.get_param('~zero_state') == 1 and rospy.get_param('~odom_rx') == 1:
             trf.calcZero()
             rospy.set_param('~zero_state', 0)
+            
         elif rospy.get_param('~zero_state') == 0 and rospy.get_param('~odom_rx') == 1:
             trf.publishCF()
             trf.publishOF()
@@ -386,8 +381,10 @@ def main():
             pass
         
         pub.publish(com.returnRxOdom())
+        
     elif distance < loc_dis and distance > com_dis and rospy.get_param('~do_ranging') == 0:
         rospy.set_param('~do_ranging', 1)
+        
     elif distance >= loc_dis + 1:
         pass
     
@@ -420,11 +417,11 @@ if __name__ == "__main__":
     
     tag_pos = [left_tag_pos_x, left_tag_pos_y, right_tag_pos_x, right_tag_pos_y]
     
-    protocol = str(rospy.get_param('~protocol', 'precise')) 
+    protocol = str(rospy.get_param('~protocol', '0')) 
     
-    if protocol == 'fast':
+    if protocol == '0':
         ranging_protocol = pzx.POZYX_RANGE_PROTOCOL_FAST
-    elif protocol == 'precise':
+    elif protocol == '1':
         ranging_protocol = pzx.POZYX_RANGE_PROTOCOL_PRECISION
     else:
         rospy.logerr("Wrong value given for protocol. Either give: 'fast' or 'precise'")
