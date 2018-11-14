@@ -31,6 +31,7 @@ class Transform(object):
         return (trans[0] * trans[0] + trans[1] * trans[1]) ** 0.5
         
     def calcZero(self):
+        rospy.loginfo(self.odom_data)
         self._x = self.trans[0] + (self.odom_data.pose.pose.position.x)
         self._y = self.trans[1] + (self.odom_data.pose.pose.position.y)
         quat = tf.transformations.quaternion_from_euler(0, 0, self.rot[2])
@@ -142,18 +143,24 @@ class Localize(object):
         self.br = tf.TransformBroadcaster()
     
     def getDistance(self):
-        if self.do_ranging == 0:
-            self.f1.predict()
-            self.pozyx.rangingWithoutCheck(self.C, self.distance_1)
-            self.f1.update(self.distance_1[1])
-            print(self.f1.x[0] * 0.001)
-            return self.f1.x[0] * 0.001
-        elif self.do_ranging == 1:
-            self.f1.predict()
-            self.pozyx.doRanging(self.C, self.distance_1)
-            self.f1.update(self.distance_1[1])
-            print(self.f1.x[0] * 0.001)
-            return self.f1.x[0] * 0.001
+        if rospy.get_param('~do_ranging') == 1:
+            if self.do_ranging == 0:
+                self.f1.predict()
+                self.pozyx.rangingWithoutCheck(self.D, self.distance_1)
+                self.f1.update(self.distance_1[1])
+                return self.f1.x[0] * 0.001
+            elif self.do_ranging == 1:
+                self.f1.predict()
+                self.pozyx.doRanging(self.D, self.distance_1)
+                self.f1.update(self.distance_1[1])
+                return self.f1.x[0] * 0.001
+        elif rospy.get_param('~do_ranging') == 0:
+            try:
+                return trf.checkDistance()
+            except Exception as e:
+                rospy.logwarn(e)
+                pass
+        
               
     def getDistances(self):
         # Distance 1 = AC
@@ -313,7 +320,6 @@ class Communicate(object):
             }
         s = json.dumps(x)
         comp_data = zlib.compress(str(s))
-        print(comp_data)
         data = Data([ord(c) for c in comp_data])
         self.pozyx.sendData(self.destination, data)
                 
@@ -322,10 +328,9 @@ class Communicate(object):
         data = Data([0]*self.rx_info[1])
         self.pozyx.readRXBufferData(data)   
         message = str(self.rx_info[1]) 
-        print("length", self.rx_info[1])
         for i in data:
             message = message + chr(i)
-
+        print(len(message))
         s = zlib.decompress(message)
         y = json.loads(s)
 
@@ -339,20 +344,17 @@ class Communicate(object):
         odom_data_pub.twist.twist.angular.z = y['f']
         
         self.odom_data_rx = odom_data_pub
-    
+        rospy.set_param('~odom_rx', 1)
+        
     def returnRxOdom(self):
         return self.odom_data_rx
         
 def main():
-    if rospy.get_param('~do_ranging') == 1:
-        distance = loc.getDistance()
-    elif rospy.get_param('~do_ranging') == 0:
-        try:
-            distance = trf.checkDistance()
-        except Exception as e:
-            rospy.logwarn(e)
-            pass
+    distance = loc.getDistance()
         
+    rospy.loginfo(distance)
+    rospy.loginfo("Range state: %i, Com state: %i", rospy.get_param('~do_ranging'), rospy.get_param('~odom_rx'))
+    
     if distance < loc_dis and distance > com_dis:
         rospy.set_param('~do_ranging', 1)
         loc.getDistances()
@@ -366,24 +368,22 @@ def main():
     elif distance <= com_dis:
         rospy.set_param('~do_ranging', 0)
         
-        while not rospy.is_shutdown():
-            try:
-                com.txData()
-                com.rxData()
-                break
-            except Exception as e:
-                rospy.sleep(0.1)
-                pass
+        try:
+            com.txData()
+            com.rxData()
+            trf.odomData()
+        except Exception as e:
+            rospy.logwarn(e)
+            pass
         
-        trf.odomData()
-        if rospy.get_param('~zero_state') == 1:
+        if rospy.get_param('~zero_state') == 1 and rospy.get_param('~odom_rx') == 1:
             trf.calcZero()
             rospy.set_param('~zero_state', 0)
+        elif rospy.get_param('~zero_state') == 0 and rospy.get_param('~odom_rx') == 1:
+            trf.publishCF()
+            trf.publishOF()
         else:
             pass
-
-        trf.publishCF()
-        trf.publishOF() 
         
         pub.publish(com.returnRxOdom())
     elif distance < loc_dis and distance > com_dis and rospy.get_param('~do_ranging') == 0:
@@ -452,6 +452,7 @@ if __name__ == "__main__":
     
     rospy.loginfo("Done intializing UWB")
     rospy.set_param('~do_ranging', 1)
+    rospy.set_param('~odom_rx', 0)
     while not rospy.is_shutdown():
         main()        
         rate.sleep()
