@@ -281,7 +281,7 @@ class Localize(object):
                      self.link_to_robot)
 
 class Communicate(object):
-    def __init__(self, pozyx, robot_number):
+    def __init__(self, pozyx, robot_number, robot_list):
         if robot_number == 1:
             self.destination = robot_list[2]['left']
         elif robot_number == 2:
@@ -308,7 +308,7 @@ class Communicate(object):
         s = json.dumps(x)
         comp_data = zlib.compress(str(s))
         data = Data([ord(c) for c in comp_data])
-        self.pozyx.sendData(self.destination, data)
+        status = self.pozyx.sendData(self.destination, data)
                 
     def rxData(self):       
         self.pozyx.getRxInfo(self.rx_info)
@@ -362,7 +362,6 @@ def main():
         try:
             com.rxData()
         except Exception as e:
-            rospy.logwarn(e)
             pass
         
         trf.odomData()
@@ -436,7 +435,7 @@ if __name__ == "__main__":
     pub = rospy.Publisher(rx_topic, Odometry, queue_size = 10)
     
     loc = Localize(pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging, tf_prefix)
-    com = Communicate(pozyx, robot_number)
+    com = Communicate(pozyx, robot_number, )
     trf = Transform(link_to_robot, tf_prefix)
     
     rospy.Subscriber(tx_topic, Odometry, com.odomData)
