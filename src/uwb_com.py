@@ -64,6 +64,7 @@ def main():
         odom_data = com.rxData()
         pub.publish(odom_data)
     except Exception as e:
+        rospy.logwarn(e)
         pass
     com.txData()
 

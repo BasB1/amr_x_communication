@@ -22,7 +22,7 @@ class Transform(object):
          
     def getTransformData(self):
         (self.trans, self.rot) = self.listener.lookupTransform(self.tf_prefix + '/odom', self.tf_prefix + '/robot_pos_1', rospy.Time(0))
-      
+
     def odomData(self):
         self.odom_data = com.returnRxOdom()
     
@@ -33,13 +33,12 @@ class Transform(object):
     def calcZero(self):
         self._x = self.trans[0] + (self.odom_data.pose.pose.position.x)
         self._y = self.trans[1] + (self.odom_data.pose.pose.position.y)
-        quat = tf.transformations.quaternion_from_euler(0, 0, self.rot[2])
         
         self._quaternion = (
             0,
             0,
-            self.odom_data.pose.pose.orientation.z + quat[2],
-            self.odom_data.pose.pose.orientation.w + quat[3])
+            self.odom_data.pose.pose.orientation.z + self.rot[2],
+            self.odom_data.pose.pose.orientation.w + self.rot[3])
         
     def publishCF(self):
         self.broadcaster.sendTransform((self._x, self._y, 0),
@@ -82,11 +81,9 @@ class Localize(object):
         if robot_number == 1:
             self.C = robot_list[2]['left']
             self.D = robot_list[2]['right']
-            self.destination = robot_list[2]['left']
         elif robot_number == 2:
             self.C = robot_list[1]['left']
             self.D = robot_list[1]['right']
-            self.destination = robot_list[1]['left']
         
         self.distance_prev_1 = 0
         self.distance_prev_2 = 0
@@ -145,6 +142,7 @@ class Localize(object):
         try:
             return trf.checkDistance()
         except Exception as e:
+            return self.f1.x[0] * 0.001
             rospy.logwarn(e)
             pass
         
@@ -283,7 +281,7 @@ class Localize(object):
                      self.link_to_robot)
 
 class Communicate(object):
-    def __init__(self, pozyx):
+    def __init__(self, pozyx, robot_number):
         if robot_number == 1:
             self.destination = robot_list[2]['left']
         elif robot_number == 2:
@@ -319,7 +317,7 @@ class Communicate(object):
         message = str(self.rx_info[1]) 
         for i in data:
             message = message + chr(i)
-        print(len(message))
+            
         s = zlib.decompress(message)
         y = json.loads(s)
 
@@ -356,25 +354,25 @@ def main():
         try:
             trf.getTransformData()
         except Exception as e:
-            rospy.logwarn(e)
             pass
         
     elif distance <= com_dis:
         rospy.set_param('~_ranging', 0)
         
         try:
-            com.txData()
             com.rxData()
-            trf.odomData()
         except Exception as e:
             rospy.logwarn(e)
             pass
         
-        if rospy.get_param('~zero_state') == 1 and rospy.get_param('~odom_rx') == 1:
+        trf.odomData()
+        com.txData()
+        
+        if rospy.get_param('~zero_state') == 1:
             trf.calcZero()
             rospy.set_param('~zero_state', 0)
             
-        elif rospy.get_param('~zero_state') == 0 and rospy.get_param('~odom_rx') == 1:
+        elif rospy.get_param('~zero_state') == 0:
             trf.publishCF()
             trf.publishOF()
         else:
@@ -438,7 +436,7 @@ if __name__ == "__main__":
     pub = rospy.Publisher(rx_topic, Odometry, queue_size = 10)
     
     loc = Localize(pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging, tf_prefix)
-    com = Communicate(pozyx)
+    com = Communicate(pozyx, robot_number)
     trf = Transform(link_to_robot, tf_prefix)
     
     rospy.Subscriber(tx_topic, Odometry, com.odomData)
@@ -449,6 +447,7 @@ if __name__ == "__main__":
     
     for i in range(25):
         distance = loc.getDistances()
+        rospy.loginfo(distance)
         rate.sleep()
     rospy.loginfo("Done intializing UWB")
     
