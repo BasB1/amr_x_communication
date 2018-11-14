@@ -445,9 +445,10 @@ if __name__ == "__main__":
     
     rospy.set_param('~_ranging', 1)
     rospy.set_param('~odom_rx', 0)
+    rospy.set_param('~zero_state', 1)
     
     for i in range(25):
-        distance = loc.getDistance()
+        distance = loc.getDistances()
         rate.sleep()
     rospy.loginfo("Done intializing UWB")
     

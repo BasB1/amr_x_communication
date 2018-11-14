@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?> 
 <launch>
   <arg name="robot_number" value="2"/>
-  <arg name="do_ranging" value="0"/>
+  <arg name="do_ranging" value="1"/>
   <arg name="left_tag_x" default="0" />
   <arg name="left_tag_y" default="0.255" />
   <arg name="right_tag_x" default="0" />
