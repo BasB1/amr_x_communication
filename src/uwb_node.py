@@ -364,11 +364,16 @@ def main():
             pass
     elif distance <= com_dis:
         rospy.set_param('~do_ranging', 0)
-        try:
-            com.txData() 
-            com.rxData()
-        except Exception as e:
-            pass
+        
+        while True:
+            try:
+                com.rxData()
+                com.txData()
+                break
+            except Exception as e:
+                rospy.sleep(0.1)
+                pass
+        
         trf.odomData()
         if rospy.get_param('~zero_state') == 1:
             trf.calcZero()
