@@ -27,7 +27,7 @@ class Transform(object):                                                        
         self.odom_data = com.returnRxOdom()
     
     def checkDistance(self):
-        (trans, rot) = self.listener.lookupTransform(self.tf_prefix + '/odom', self.tf_prefix + '/robot_pos_1', rospy.Time(0))
+        (trans, rot) = self.listener.lookupTransform(self.tf_prefix + '/odom', self.tf_prefix + '/external_base_footprint', rospy.Time(0))
         return (trans[0] * trans[0] + trans[1] * trans[1]) ** 0.5
         
     def calcZero(self):
