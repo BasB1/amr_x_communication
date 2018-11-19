@@ -47,7 +47,7 @@ class Transform(object):                                                        
                      self.tf_prefix + '/odom')
 
     def publishCF(self):
-        self.broadcaster.sendTransform((self._y, -self._x, 0),
+        self.broadcaster.sendTransform((-self._x, self._y, 0),
                      (0,
                       0,
                       self._quaternion[2],
@@ -67,7 +67,7 @@ class Transform(object):                                                        
                      self.tf_prefix + "/external_odom")
 
 class Localize(object):                                                         # The Localiztion class holds all functions related to Pozyx measurements and localization calculations.
-    def __init__(self, pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging, tf_prefix):
+    def __init__(self, pozyx, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging, tf_prefix):
         self.pozyx = pozyx
         self.ranging_protocol = ranging_protocol
         self.tag_pos = tag_pos
@@ -397,8 +397,6 @@ if __name__ == "__main__":
     frequency = float(rospy.get_param('~frequency', 10))
     rate = rospy.Rate(frequency)
     
-    dt = 1000/frequency
-    
     alpha = float(rospy.get_param('~alpha', 0.1))
     noise = float(rospy.get_param('~noise', 1))
     R = float(rospy.get_param('~R', 30))
@@ -439,7 +437,7 @@ if __name__ == "__main__":
     
     pub = rospy.Publisher(rx_topic, Odometry, queue_size = 10)
     
-    loc = Localize(pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging, tf_prefix)
+    loc = Localize(pozyx, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging, tf_prefix)
     com = Communicate(pozyx, robot_number, robot_list)
     trf = Transform(link_to_robot, tf_prefix)
     
@@ -449,10 +447,21 @@ if __name__ == "__main__":
     rospy.set_param('~odom_rx', 0)
     rospy.set_param('~zero_state', 1)
     
-    for i in range(25):
+    for i in range(30):
         distance = loc.getDistances()
         rospy.loginfo(distance)
+        
+        loc.triangulationLocal()                                                # Calculate tag position
+        try:
+            trf.getTransformData()                                              # Update current position of the localized robot
+        except Exception as e:
+            pass
+        
         rate.sleep()
+        
+    if distance <= distance <= com_dis:
+        rospy.set_param('~_ranging', 0)
+        
     rospy.loginfo("Done intializing UWB")
     
     while not rospy.is_shutdown():
