@@ -394,7 +394,7 @@ if __name__ == "__main__":
     rospy.init_node('uwb_node')
     rospy.loginfo("Intializing UWB")
     serial_port = str(rospy.get_param('~serial_port', pzx.get_first_pozyx_serial_port()))
-    frequency = float(rospy.get_param('~frequency', 10))
+    frequency = int(rospy.get_param('~frequency', 10))
     rate = rospy.Rate(frequency)
     
     alpha = float(rospy.get_param('~alpha', 0.1))
@@ -447,7 +447,7 @@ if __name__ == "__main__":
     rospy.set_param('~odom_rx', 0)
     rospy.set_param('~zero_state', 1)
     
-    for i in range(30):
+    for i in range(4 * frequency):
         distance = loc.getDistances()
         rospy.loginfo(distance)
         
