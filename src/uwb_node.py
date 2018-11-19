@@ -32,35 +32,43 @@ class Transform(object):
         return (trans[0] * trans[0] + trans[1] * trans[1]) ** 0.5
         
     def calcZero(self):
-        self._x = self.trans[0] + (self.odom_data.pose.pose.position.x)
-        self._y = self.trans[1] + (self.odom_data.pose.pose.position.y)
+        self._x = self.odom_data.pose.pose.position.x
+        self._y = self.odom_data.pose.pose.position.y
         
-        (r1,p1,y1) = euler_from_quaternion(self.rot)
-        (r2,p2,y2) = euler_from_quaternion(self.odom_data.pose.pose.orientation)
+#        (r1,p1,y1) = euler_from_quaternion(self.rot)
+#        (r2,p2,y2) = euler_from_quaternion([0, 0, self.odom_data.pose.pose.orientation.z, self.odom_data.pose.pose.orientation.w])
         
-        self._quaternion = quaternion_from_euler(0, 0, (y1 + y2))
+        self._quaternion = [0, 0, self.odom_data.pose.pose.orientation.z, self.odom_data.pose.pose.orientation.w]
+        
+    def publishAnchor(self):
+        self.broadcaster.sendTransform((self.trans[0], self.trans[1], 0),
+                     (0,
+                      0,
+                      self.rot[2],
+                      self.rot[3]),
+                     rospy.Time.now(),
+                     self.tf_prefix + '/anchor',
+                     self.tf_prefix + '/odom')
 
     def publishCF(self):
-        print(self.rot)
-        print(self._quaternion)
-        self.broadcaster.sendTransform((self._x, self._y, 0),
+        self.broadcaster.sendTransform((self._y, -self._x, 0),
                      (0,
                       0,
                       self._quaternion[2],
-                      self._quaternion[3]),
+                      -self._quaternion[3]),
                      rospy.Time.now(),
-                     self.tf_prefix + '/zero',
-                     self.tf_prefix + '/odom')
+                     self.tf_prefix + '/external_odom',
+                     self.tf_prefix + '/anchor')
     
     def publishOF(self):
-        self.broadcaster.sendTransform((self.odom_data.pose.pose.orientation.x, self.odom_data.pose.pose.orientation.y, 0),
+        self.broadcaster.sendTransform((self.odom_data.pose.pose.position.x, self.odom_data.pose.pose.position.y, 0),
                      (0,
                       0,
                       self.odom_data.pose.pose.orientation.z,
                       self.odom_data.pose.pose.orientation.w),
                      rospy.Time.now(),
-                     self.tf_prefix + "/external_odom",
-                     self.tf_prefix + "/zero")
+                     self.tf_prefix + "/external_base_footprint",
+                     self.tf_prefix + "/external_odom")
 
 class Localize(object):
     def __init__(self, pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging, tf_prefix):
@@ -378,6 +386,7 @@ def main():
             rospy.set_param('~zero_state', 0)
             
         elif rospy.get_param('~zero_state') == 0  and rospy.get_param('~odom_rx') == 1:
+            trf.publishAnchor()
             trf.publishCF()
             trf.publishOF()
         else:
