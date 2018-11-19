@@ -35,7 +35,7 @@
       <param name="R" value="10"/>
       <param name="alpha" value="1.1"/>
       <param name="noise" value="0.0001"/>
-      <param name="protocol" value="precise"/>
+      <param name="protocol" value="1"/>
 
       <!--Communication settings-->
       <param name="tx_topic" value="odom"/>

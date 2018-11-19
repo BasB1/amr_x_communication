@@ -11,6 +11,7 @@ from nav_msgs.msg import Odometry
 import json
 from pypozyx import Data
 import zlib
+from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
 class Transform(object):
     def __init__(self, link_to_robot, tf_prefix):
@@ -34,13 +35,14 @@ class Transform(object):
         self._x = self.trans[0] + (self.odom_data.pose.pose.position.x)
         self._y = self.trans[1] + (self.odom_data.pose.pose.position.y)
         
-        self._quaternion = (
-            0,
-            0,
-            self.odom_data.pose.pose.orientation.z + self.rot[2],
-            self.odom_data.pose.pose.orientation.w + self.rot[3])
+        (r1,p1,y1) = euler_from_quaternion(self.rot)
+        (r2,p2,y2) = euler_from_quaternion(self.odom_data.pose.pose.orientation)
         
+        self._quaternion = quaternion_from_euler(0, 0, (y1 + y2))
+
     def publishCF(self):
+        print(self.rot)
+        print(self._quaternion)
         self.broadcaster.sendTransform((self._x, self._y, 0),
                      (0,
                       0,
@@ -52,8 +54,8 @@ class Transform(object):
     
     def publishOF(self):
         self.broadcaster.sendTransform((self.odom_data.pose.pose.orientation.x, self.odom_data.pose.pose.orientation.y, 0),
-                     (self.odom_data.pose.pose.orientation.x,
-                      self.odom_data.pose.pose.orientation.y,
+                     (0,
+                      0,
                       self.odom_data.pose.pose.orientation.z,
                       self.odom_data.pose.pose.orientation.w),
                      rospy.Time.now(),
@@ -308,30 +310,31 @@ class Communicate(object):
         s = json.dumps(x)
         comp_data = zlib.compress(str(s))
         data = Data([ord(c) for c in comp_data])
-        status = self.pozyx.sendData(self.destination, data)
+        self.pozyx.sendData(self.destination, data)
                 
     def rxData(self):       
         self.pozyx.getRxInfo(self.rx_info)
         data = Data([0]*self.rx_info[1])
         self.pozyx.readRXBufferData(data)   
-        message = str(self.rx_info[1]) 
+        message = str() 
+        
         for i in data:
             message = message + chr(i)
-            
+        
         s = zlib.decompress(message)
         y = json.loads(s)
-
-        odom_data_pub = Odometry()
         
+        odom_data_pub = Odometry()
+
         odom_data_pub.pose.pose.position.x = y['a']
         odom_data_pub.pose.pose.position.y = y['b']
         odom_data_pub.pose.pose.orientation.z = y['c']
         odom_data_pub.pose.pose.orientation.w = y['d']
+
         odom_data_pub.twist.twist.linear.x = y['e']
         odom_data_pub.twist.twist.angular.z = y['f']
         
         self.odom_data_rx = odom_data_pub
-        rospy.set_param('~odom_rx', 1)
         
     def returnRxOdom(self):
         return self.odom_data_rx
@@ -343,7 +346,7 @@ def main():
         distance = loc.getDistance()
         
     rospy.loginfo(distance)
-    rospy.loginfo("Range state: %i, Com state: %i", rospy.get_param('~_ranging'), rospy.get_param('~odom_rx'))
+    rospy.loginfo("Range: %i, Com: %i, Zero: %i", rospy.get_param('~_ranging'), rospy.get_param('~odom_rx'), rospy.get_param('~zero_state'))
     
     if distance < loc_dis and distance > com_dis:
         rospy.set_param('~_ranging', 1)
@@ -361,23 +364,24 @@ def main():
         
         try:
             com.rxData()
+            rospy.set_param('~odom_rx', 1)
         except Exception as e:
+            rospy.logwarn(e)
             pass
         
         trf.odomData()
         com.txData()
+        pub.publish(com.returnRxOdom())
         
-        if rospy.get_param('~zero_state') == 1:
+        if rospy.get_param('~zero_state') == 1 and rospy.get_param('~odom_rx') == 1:
             trf.calcZero()
             rospy.set_param('~zero_state', 0)
             
-        elif rospy.get_param('~zero_state') == 0:
+        elif rospy.get_param('~zero_state') == 0  and rospy.get_param('~odom_rx') == 1:
             trf.publishCF()
             trf.publishOF()
         else:
             pass
-        
-        pub.publish(com.returnRxOdom())
         
     elif distance < loc_dis and distance > com_dis and rospy.get_param('~do_ranging') == 0:
         rospy.set_param('~do_ranging', 1)
@@ -421,7 +425,7 @@ if __name__ == "__main__":
     elif protocol == '1':
         ranging_protocol = pzx.POZYX_RANGE_PROTOCOL_PRECISION
     else:
-        rospy.logerr("Wrong value given for protocol. Either give: 'fast' or 'precise'")
+        rospy.logerr("Wrong value given for protocol. Either give: '0' or '1'")
         ranging_protocol = pzx.POZYX_RANGE_PROTOCOL_PRECISION
         
     pozyx = pzx.PozyxSerial(serial_port)
@@ -435,7 +439,7 @@ if __name__ == "__main__":
     pub = rospy.Publisher(rx_topic, Odometry, queue_size = 10)
     
     loc = Localize(pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging, tf_prefix)
-    com = Communicate(pozyx, robot_number, )
+    com = Communicate(pozyx, robot_number, robot_list)
     trf = Transform(link_to_robot, tf_prefix)
     
     rospy.Subscriber(tx_topic, Odometry, com.odomData)
