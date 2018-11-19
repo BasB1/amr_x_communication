@@ -11,9 +11,8 @@ from nav_msgs.msg import Odometry
 import json
 from pypozyx import Data
 import zlib
-from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
-class Transform(object):
+class Transform(object):                                                        # The Transform class holds all functions related to transformation calculation and publishing.
     def __init__(self, link_to_robot, tf_prefix):
          self.broadcaster = tf.TransformBroadcaster()
          self.listener = tf.TransformListener()
@@ -34,9 +33,6 @@ class Transform(object):
     def calcZero(self):
         self._x = self.odom_data.pose.pose.position.x
         self._y = self.odom_data.pose.pose.position.y
-        
-#        (r1,p1,y1) = euler_from_quaternion(self.rot)
-#        (r2,p2,y2) = euler_from_quaternion([0, 0, self.odom_data.pose.pose.orientation.z, self.odom_data.pose.pose.orientation.w])
         
         self._quaternion = [0, 0, self.odom_data.pose.pose.orientation.z, self.odom_data.pose.pose.orientation.w]
         
@@ -70,7 +66,7 @@ class Transform(object):
                      self.tf_prefix + "/external_base_footprint",
                      self.tf_prefix + "/external_odom")
 
-class Localize(object):
+class Localize(object):                                                         # The Localiztion class holds all functions related to Pozyx measurements and localization calculations.
     def __init__(self, pozyx, dt, ranging_protocol, robot_list, tag_pos, robot_number, alpha, noise, R, link_to_robot, do_ranging, tf_prefix):
         self.pozyx = pozyx
         self.ranging_protocol = ranging_protocol
@@ -156,7 +152,6 @@ class Localize(object):
             rospy.logwarn(e)
             pass
         
-              
     def getDistances(self):
         # Distance 1 = AC
         # Distance 2 = AD
@@ -164,7 +159,7 @@ class Localize(object):
         # Distance 4 = BD
         # Where A(left) B(right) are local and C(left) D(right) are remote
         
-        self.f1.predict()
+        self.f1.predict()                                                       # Prediction of the KF
         self.f2.predict()
         self.f3.predict()
         self.f4.predict()
@@ -180,8 +175,8 @@ class Localize(object):
             self.pozyx.doRanging(self.C, self.distance_2, self.B)        
             self.pozyx.doRanging(self.D, self.distance_4, self.B)
         
-        if self.distance_1[1] == 0 or self.distance_1[1] > 1000000:
-            self.distance_1[1] = self.distance_prev_1
+        if self.distance_1[1] == 0 or self.distance_1[1] > 1000000:             # It is possible raning quality is bad or was unsuccesfull
+            self.distance_1[1] = self.distance_prev_1                           # This prevents distrubance of the KF
         if self.distance_2[1] == 0 or self.distance_2[1] > 1000000:
             self.distance_2[1] = self.distance_prev_2
         if self.distance_3[1] == 0 or self.distance_3[1] > 1000000:
@@ -194,7 +189,7 @@ class Localize(object):
         self.distance_prev_3 = self.distance_3[1]
         self.distance_prev_4 = self.distance_4[1]
                 
-        self.f1.update(self.distance_1[1])
+        self.f1.update(self.distance_1[1])                                      # Update KF with measurement
         self.f2.update(self.distance_2[1])
         self.f3.update(self.distance_3[1])
         self.f4.update(self.distance_4[1])  
@@ -202,7 +197,11 @@ class Localize(object):
         return self.f1.x[0] * 0.001
         
     def triangulationLocal(self):
-        r_0 = self.f1.x[0] * 0.001
+        # This function uses the distance measurements to determine the location of the robot.
+        # It uses the distqances as cirkles to calculate intersections of thses cirkles.
+        # These intersections represent possible solutions for the tag location.
+    
+        r_0 = self.f1.x[0] * 0.001                                              # Result of the KF
         r_1 = self.f2.x[0] * 0.001      
         r_2 = self.f3.x[0] * 0.001
         r_3 = self.f4.x[0] * 0.001
@@ -249,9 +248,6 @@ class Localize(object):
             ROBOT_w_1 = math.degrees(ROBOT_w_1)
         ROBOT_w_1 = math.radians(ROBOT_w_1) * -1
         
-#        self.f5.update(ROBOT_w_1)
-#        ROBOT_w_1 = self.f5.x[0]
-        
         ROBOT_w_2 = math.tan((LEFT_x_2 - RIGHT_x_2) / (LEFT_y_2 - RIGHT_y_2))
         if LEFT_y_2 < RIGHT_y_2:
             ROBOT_w_2 = math.degrees(ROBOT_w_2)
@@ -259,7 +255,7 @@ class Localize(object):
             ROBOT_w_2 = math.degrees(ROBOT_w_2)
         ROBOT_w_2 = math.radians(ROBOT_w_2) * -1
         
-        self.br.sendTransform((LEFT_x_1, LEFT_y_1, 0),
+        self.br.sendTransform((LEFT_x_1, LEFT_y_1, 0),                          # Create the transforms for vizualization purpose
                      tf.transformations.quaternion_from_euler(0, 0, 0),
                      rospy.Time.now(),
                      self.tf_prefix + "/left_tag_1",
@@ -290,7 +286,7 @@ class Localize(object):
                      self.tf_prefix + "/robot_pos_2",
                      self.link_to_robot)
 
-class Communicate(object):
+class Communicate(object):                                                      # The Communicate class holds all function related to sending and receiving the Odometry of the robots.
     def __init__(self, pozyx, robot_number, robot_list):
         if robot_number == 1:
             self.destination = robot_list[2]['left']
@@ -307,7 +303,7 @@ class Communicate(object):
         self.odom_data = data
         
     def txData(self):
-        x = {
+        x = {                                                                   # Create the JSON object with current odom data
                 "a": round(self.odom_data.pose.pose.position.x, 4),
                 "b": round(self.odom_data.pose.pose.position.y, 4),
                 "c": round(self.odom_data.pose.pose.orientation.z, 4), 
@@ -315,22 +311,22 @@ class Communicate(object):
                 "e": round(self.odom_data.twist.twist.linear.x, 4),
                 "f": round(self.odom_data.twist.twist.angular.z, 4)
             }
-        s = json.dumps(x)
-        comp_data = zlib.compress(str(s))
-        data = Data([ord(c) for c in comp_data])
-        self.pozyx.sendData(self.destination, data)
+        s = json.dumps(x)                                                       # Serialize the JSON object
+        comp_data = zlib.compress(str(s))                                       # Compress the string with zlib to keep the string length < 100 bytes
+        data = Data([ord(c) for c in comp_data])                                # Create buffer for the compressed string
+        self.pozyx.sendData(self.destination, data)                             # Send the data to the external robot
                 
     def rxData(self):       
-        self.pozyx.getRxInfo(self.rx_info)
-        data = Data([0]*self.rx_info[1])
-        self.pozyx.readRXBufferData(data)   
+        self.pozyx.getRxInfo(self.rx_info)                                      # Get the length of the received data
+        data = Data([0]*self.rx_info[1])                                        # Create a buffer for the incomming string
+        self.pozyx.readRXBufferData(data)                                       # Read the received data from the registery
         message = str() 
         
         for i in data:
             message = message + chr(i)
         
-        s = zlib.decompress(message)
-        y = json.loads(s)
+        s = zlib.decompress(message)                                            # Decompress zlib string
+        y = json.loads(s)                                                       # Deserialize the JSON string
         
         odom_data_pub = Odometry()
 
@@ -338,32 +334,28 @@ class Communicate(object):
         odom_data_pub.pose.pose.position.y = y['b']
         odom_data_pub.pose.pose.orientation.z = y['c']
         odom_data_pub.pose.pose.orientation.w = y['d']
-
         odom_data_pub.twist.twist.linear.x = y['e']
         odom_data_pub.twist.twist.angular.z = y['f']
         
         self.odom_data_rx = odom_data_pub
         
-    def returnRxOdom(self):
+    def returnRxOdom(self):                                                     # This funtion return odom data to the Transformation class
         return self.odom_data_rx
         
 def main():
-    if rospy.get_param('~_ranging') == 1:
+    if rospy.get_param('~_ranging') == 1:                                       # First check the distance and determine of to communicate or localize
         distance = loc.getDistances()
     elif rospy.get_param('~_ranging') == 0:
         distance = loc.getDistance()
-        
-    rospy.loginfo(distance)
-    rospy.loginfo("Range: %i, Com: %i, Zero: %i", rospy.get_param('~_ranging'), rospy.get_param('~odom_rx'), rospy.get_param('~zero_state'))
     
     if distance < loc_dis and distance > com_dis:
         rospy.set_param('~_ranging', 1)
         rospy.set_param('~zero_state', 1)
         
-        loc.triangulationLocal()
+        loc.triangulationLocal()                                                # Calculate tag position
         
         try:
-            trf.getTransformData()
+            trf.getTransformData()                                              # Update current position of the localized robot
         except Exception as e:
             pass
         
@@ -371,24 +363,24 @@ def main():
         rospy.set_param('~_ranging', 0)
         
         try:
-            com.rxData()
+            com.rxData()                                                        # Send the Odometry from local robot
             rospy.set_param('~odom_rx', 1)
         except Exception as e:
             rospy.logwarn(e)
             pass
         
-        trf.odomData()
-        com.txData()
-        pub.publish(com.returnRxOdom())
+        trf.odomData()                                                          # Update the external Odometry 
+        com.txData()                                                            # Transmit the local Odometry to the external robot
+        pub.publish(com.returnRxOdom())                                         # Publish the external Odometry on the local machine
         
         if rospy.get_param('~zero_state') == 1 and rospy.get_param('~odom_rx') == 1:
-            trf.calcZero()
+            trf.calcZero()                                                      # Update the absolute position of the external robot for transformation
             rospy.set_param('~zero_state', 0)
             
         elif rospy.get_param('~zero_state') == 0  and rospy.get_param('~odom_rx') == 1:
-            trf.publishAnchor()
-            trf.publishCF()
-            trf.publishOF()
+            trf.publishAnchor()                                                 # Transform the external anchor relative ro local robot
+            trf.publishCF()                                                     # Publish the child fram for the external robot (external_odom)
+            trf.publishOF()                                                     # Publish the footprint of the external robot (external_base_footprint)
         else:
             pass
         
@@ -420,7 +412,7 @@ if __name__ == "__main__":
     link_to_robot = str(rospy.get_param('~link', 'base_footprint'))
     do_ranging = rospy.get_param('~do_ranging', 1)
     
-    tf_prefix = str(rospy.get_param('~tf_prefix', 'base_footprint'))
+    tf_prefix = str(rospy.get_param('~tf_prefix'))
     
     loc_dis = float(rospy.get_param('~loc_dis', 6))
     com_dis = float(rospy.get_param('~com_dis', 4))
